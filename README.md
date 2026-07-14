@@ -2,6 +2,8 @@
 
 A responsive React MVP for a small restaurant to manage inventory, daily prep, recipes, purchasing, and AI-assisted receipt intake.
 
+The implementation backlog for the next operational phase is maintained in [`TASKS.md`](./TASKS.md).
+
 ## Run locally
 
 ```bash
