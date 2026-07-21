@@ -44,10 +44,11 @@ import {
 import {useAuth} from "./features/auth/AuthProvider";
 import CatalogPage from "./features/inventory/pages/CatalogPage";
 import {applyTheme, readTheme} from "./app/theme";
+import {isInventoryRelease} from "./config/release";
 
 import NicoWineWhite from "./assets/nico-whine-white.png";
 
-const navItems = [{
+const fullNavItems = [{
     id: "dashboard",
     label: "Resumen",
     icon: LayoutDashboard
@@ -80,6 +81,8 @@ const navItems = [{
         icon: ReceiptText
     },
 ];
+
+const inventoryReleaseNavItems = fullNavItems.filter(({id}) => id === "inventory");
 
 const inventorySeed = [{
     id: 1,
@@ -289,8 +292,10 @@ function Sidebar({
                      setCollapsed,
                      identity,
                      onSignOut,
-                     signingOut
+                     signingOut,
+                     inventoryOnly
                  }) {
+    const navItems = inventoryOnly ? inventoryReleaseNavItems : fullNavItems;
     return (
         <aside className={`sidebar ${open ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
             <div className="side-head"><Logo/>
@@ -315,8 +320,8 @@ function Sidebar({
                 ))}
                 <div className="admin-nav">
                     <p className="nav-label bottom">ADMINISTRACIÓN</p>
-                    <button className="nav-item" title={collapsed ? "Equipo" : undefined}><UserRound
-                        size={19}/><span>Equipo</span></button>
+                    {!inventoryOnly && <button className="nav-item" title={collapsed ? "Equipo" : undefined}><UserRound
+                        size={19}/><span>Equipo</span></button>}
                     <button className={`nav-item ${page === "settings" ? "active" : ""}`}
                             title={collapsed ? "Configuración" : undefined} onClick={() => {
                         setPage("settings");
@@ -337,7 +342,8 @@ function Sidebar({
 function Header({
                     page,
                     setOpen,
-                    onUpload
+                    onUpload,
+                    inventoryOnly
                 }) {
     const titles = {
         dashboard: ["Buenos días, Carlos", ""],
@@ -352,11 +358,11 @@ function Header({
         <header className="topbar">
             <button className="icon-btn mobile-menu" onClick={() => setOpen(true)}><Menu size={20}/></button>
             <div className="page-title"><h1>{titles[page][0]}</h1><p>{titles[page][1]}</p></div>
-            <div className="top-actions">
+            {!inventoryOnly && <div className="top-actions">
                 <button className="icon-btn notification"><Bell size={19}/><i/></button>
                 <button className="primary-btn" onClick={onUpload}><Upload size={17}/><span>Subir factura</span>
                 </button>
-            </div>
+            </div>}
         </header>
     );
 }
@@ -731,7 +737,7 @@ function UploadModal({
 
 export default function App() {
     const {profile, user, signOut} = useAuth();
-    const [page, setPage] = useState("dashboard");
+    const [page, setPage] = useState(() => isInventoryRelease ? "inventory" : "dashboard");
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [theme, setTheme] = useState(readTheme);
@@ -759,11 +765,12 @@ export default function App() {
     return <div className="app-shell">
         <Sidebar page={page} setPage={setPage} open={mobileOpen} setOpen={setMobileOpen}
                  collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} identity={identity}
-                 onSignOut={handleSignOut} signingOut={signingOut}/>
+                 onSignOut={handleSignOut} signingOut={signingOut} inventoryOnly={isInventoryRelease}/>
         {mobileOpen && <div className="side-overlay" onClick={() => setMobileOpen(false)}/>}
         <main className={`main ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}><Header page={page}
                                                                                         setOpen={setMobileOpen}
-                                                                                        onUpload={() => setUploadOpen(true)}/>
+                                                                                        onUpload={() => setUploadOpen(true)}
+                                                                                        inventoryOnly={isInventoryRelease}/>
             <div className="content">{page === "dashboard" &&
                 <Dashboard inventory={inventory} setPage={setPage}/>}{page === "inventory" &&
                 <CatalogPage/>}{page === "prep" && <PrepPage/>}{page === "recipes" &&
@@ -771,6 +778,6 @@ export default function App() {
                 <ReceiptsPage onUpload={() => setUploadOpen(true)}/>} {page === "settings" &&
                 <SettingsPage theme={theme} onThemeChange={setTheme}/>}</div>
         </main>
-        {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)}/>}
+        {!isInventoryRelease && uploadOpen && <UploadModal onClose={() => setUploadOpen(false)}/>}
     </div>;
 }

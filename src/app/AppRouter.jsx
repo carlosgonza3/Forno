@@ -24,7 +24,9 @@ export default function AppRouter() {
         <Route element={<ProtectedRoute />}>
           <Route path="/app/*" element={<Suspense fallback={<RouteLoading />}><OperationsPage /></Suspense>} />
         </Route>
-        <Route path="/preview" element={<Suspense fallback={<RouteLoading />}><OperationsPage /></Suspense>} />
+        {import.meta.env.DEV && (
+          <Route path="/preview" element={<Suspense fallback={<RouteLoading />}><OperationsPage /></Suspense>} />
+        )}
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </AuthProvider>

@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy inventory production
 
 on:
   push:
@@ -11,8 +11,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: production-pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -30,17 +30,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Verify production configuration
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY repository variable."
+            exit 1
+          fi
+
+      - name: Test
+        run: npm test
+
+      - name: Build inventory release
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_RELEASE_SCOPE: inventory
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: dist
 
