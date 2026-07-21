@@ -121,7 +121,12 @@ create table public.audit_log (
 
 create or replace function public.is_admin()
 returns boolean language sql stable security definer set search_path = '' as $$
-  select exists(select 1 from public.profiles where id = auth.uid() and role = 'admin');
+  select
+    coalesce(auth.jwt() ->> 'aal' = 'aal2', false)
+    and exists(
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    );
 $$;
 
 grant execute on function public.is_admin() to authenticated;
