@@ -1,4 +1,5 @@
 import {
+    useEffect,
     useMemo,
     useState
 } from "react";
@@ -22,6 +23,7 @@ import {
     LogOut,
     Menu,
     Minus,
+    Moon,
     Package,
     PanelLeftClose,
     PanelLeftOpen,
@@ -31,6 +33,7 @@ import {
     Settings,
     ShoppingBasket,
     Sparkles,
+    Sun,
     TrendingDown,
     Upload,
     UserRound,
@@ -40,6 +43,7 @@ import {
 
 import {useAuth} from "./features/auth/AuthProvider";
 import CatalogPage from "./features/inventory/pages/CatalogPage";
+import {applyTheme, readTheme} from "./app/theme";
 
 import NicoWineWhite from "./assets/nico-whine-white.png";
 
@@ -313,8 +317,11 @@ function Sidebar({
                     <p className="nav-label bottom">ADMINISTRACIÓN</p>
                     <button className="nav-item" title={collapsed ? "Equipo" : undefined}><UserRound
                         size={19}/><span>Equipo</span></button>
-                    <button className="nav-item" title={collapsed ? "Configuración" : undefined}><Settings
-                        size={19}/><span>Configuración</span></button>
+                    <button className={`nav-item ${page === "settings" ? "active" : ""}`}
+                            title={collapsed ? "Configuración" : undefined} onClick={() => {
+                        setPage("settings");
+                        setOpen(false);
+                    }}><Settings size={19}/><span>Configuración</span></button>
                 </div>
             </nav>
             <div className="user-card">
@@ -338,7 +345,8 @@ function Header({
         prep: ["Preparaciones", ""],
         recipes: ["Recetas", ""],
         shopping: ["Lista de compras", ""],
-        receipts: ["Facturas", ""]
+        receipts: ["Facturas", ""],
+        settings: ["Configuración", ""]
     };
     return (
         <header className="topbar">
@@ -385,7 +393,7 @@ function Dashboard({
     const low = inventory.filter((x) => x.stock <= x.reorder || x.stock / x.par < .7);
     return <>
         <section className="service-banner">
-            <div className="banner-mark"><FornoFox size={42}/></div>
+            <div className="banner-mark"><FornoFox size={64}/></div>
             <div>FORNO <br/> <span> SAN BENITO </span></div>
             <div className="banner-status"><i/><span>Próximo servicio</span><strong>6:00 PM</strong></div>
         </section>
@@ -675,6 +683,28 @@ function ReceiptsPage({
     </div>;
 }
 
+function SettingsPage({theme, onThemeChange}) {
+    const choices = [
+        {id: "light", label: "Modo claro", description: "Una interfaz luminosa para espacios bien iluminados.", icon: Sun},
+        {id: "dark", label: "Modo oscuro", description: "Menos brillo y mayor comodidad durante el servicio nocturno.", icon: Moon},
+    ];
+    return <div className="settings-layout">
+        <section className="panel settings-card">
+            <div className="settings-heading"><span className="eyebrow">APARIENCIA</span><h2>Elige cómo ver Forno</h2>
+                <p>Tu preferencia se guarda en este dispositivo y se aplica también al inicio de sesión.</p></div>
+            <div className="theme-options" role="radiogroup" aria-label="Tema de color">
+                {choices.map(({id, label, description, icon: Icon}) => <button key={id} role="radio"
+                    aria-checked={theme === id} className={`theme-option ${theme === id ? "selected" : ""}`}
+                    onClick={() => onThemeChange(id)}>
+                    <span className="theme-option-icon"><Icon size={22}/></span>
+                    <span><strong>{label}</strong><small>{description}</small></span>
+                    <i className="theme-check">{theme === id && <Check size={15}/>}</i>
+                </button>)}
+            </div>
+        </section>
+    </div>;
+}
+
 function UploadModal({
                          onClose
                      }) {
@@ -704,6 +734,7 @@ export default function App() {
     const [page, setPage] = useState("dashboard");
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [theme, setTheme] = useState(readTheme);
     const [uploadOpen, setUploadOpen] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
     const [inventory, setInventory] = useState(inventorySeed);
@@ -714,6 +745,10 @@ export default function App() {
         role: profile?.role === "admin" ? "Administrador" : profile?.role === "local" ? "Usuario local" : "Prototipo",
         initials: displayName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("") || "F"
     };
+
+    useEffect(() => {
+        applyTheme(theme);
+    }, [theme]);
 
     async function handleSignOut() {
         setSigningOut(true);
@@ -733,7 +768,8 @@ export default function App() {
                 <Dashboard inventory={inventory} setPage={setPage}/>}{page === "inventory" &&
                 <CatalogPage/>}{page === "prep" && <PrepPage/>}{page === "recipes" &&
                 <RecipesPage/>}{page === "shopping" && <ShoppingPage inventory={inventory}/>}{page === "receipts" &&
-                <ReceiptsPage onUpload={() => setUploadOpen(true)}/>}</div>
+                <ReceiptsPage onUpload={() => setUploadOpen(true)}/>} {page === "settings" &&
+                <SettingsPage theme={theme} onThemeChange={setTheme}/>}</div>
         </main>
         {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)}/>}
     </div>;

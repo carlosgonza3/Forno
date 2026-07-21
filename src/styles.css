@@ -4,6 +4,7 @@
     font-family: 'DM Sans', sans-serif;
     color: #29231f;
     background: #f3eee6;
+    color-scheme: light;
     font-synthesis: none;
     --ink: #29231f;
     --muted: #776f68;
@@ -18,6 +19,11 @@
     --gold-soft: #f7eedc;
     --blue: #557b83;
     --blue-soft: #e6eff0;
+    --accent: #9f3026;
+    --accent-hover: #85261e;
+    --accent-soft: #f3e1dc;
+    --accent-text: #8f2a22;
+    --accent-ring: rgba(159, 48, 38, .12);
     --shadow: 0 1px 2px rgba(44, 28, 24, .04), 0 8px 28px rgba(44, 28, 24, .04)
 }
 
@@ -425,13 +431,13 @@ button {
 .primary-btn {
     height: 39px;
     padding: 0 16px;
-    background: #c8623f;
+    background: var(--accent);
     color: #fff;
     box-shadow: 0 4px 12px rgba(200, 98, 63, .18)
 }
 
 .primary-btn:hover {
-    background: #b75433
+    background: var(--accent-hover)
 }
 
 .primary-btn:disabled {
@@ -451,7 +457,7 @@ button {
 .text-btn {
     padding: 0;
     background: transparent;
-    color: #b45536
+    color: var(--accent-text)
 }
 
 .content {
@@ -1784,21 +1790,21 @@ button {
 }
 
 .primary-btn {
-    background: #9f3026;
+    background: var(--accent);
     box-shadow: 0 4px 12px rgba(104, 26, 21, .17)
 }
 
 .primary-btn:hover {
-    background: #85261e
+    background: var(--accent-hover)
 }
 
 .text-btn {
-    color: #8f2a22
+    color: var(--accent-text)
 }
 
 .wide-soft-btn {
-    background: #f3e1dc;
-    color: #88291f
+    background: var(--accent-soft);
+    color: var(--accent-text)
 }
 
 .service-banner {
@@ -1837,6 +1843,11 @@ button {
     border: 1px solid rgba(255, 245, 232, .3);
     color: #f6e5d3;
     background: rgba(255, 255, 255, .05)
+}
+
+.banner-mark .forno-fox {
+    width: 82%;
+    height: 82%
 }
 
 .service-banner > div:nth-child(2) {
@@ -4066,4 +4077,602 @@ button {
 .signout-button:disabled {
     opacity: .45;
     cursor: wait
+}
+
+/* Appearance settings and color themes */
+.settings-layout {
+    width: min(920px, 100%);
+    margin: 0 auto
+}
+
+.settings-card {
+    padding: 32px
+}
+
+.settings-heading {
+    max-width: 620px;
+    margin-bottom: 26px
+}
+
+.settings-heading h2 {
+    margin: 7px 0 6px;
+    color: var(--ink);
+    font: 800 24px Manrope
+}
+
+.settings-heading p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6
+}
+
+.theme-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px
+}
+
+.theme-option {
+    min-height: 112px;
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr) 24px;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--paper);
+    color: var(--ink);
+    text-align: left;
+    transition: border-color .18s, background .18s, box-shadow .18s, transform .18s
+}
+
+.theme-option:hover {
+    transform: translateY(-1px);
+    border-color: #bd8d7d;
+    box-shadow: 0 9px 24px rgba(62, 31, 25, .07)
+}
+
+.theme-option.selected {
+    border-color: #a34b3c;
+    background: color-mix(in srgb, var(--paper) 88%, #9f3026 12%);
+    box-shadow: 0 0 0 3px rgba(159, 48, 38, .08)
+}
+
+.theme-option-icon {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--clay-soft);
+    color: #9f3026
+}
+
+.theme-option > span:nth-child(2) {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px
+}
+
+.theme-option strong {
+    font: 750 14px Manrope
+}
+
+.theme-option small {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45
+}
+
+.theme-check {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    color: #fff;
+    background: transparent
+}
+
+.theme-option.selected .theme-check {
+    border-color: #9f3026;
+    background: #9f3026
+}
+
+html[data-theme="dark"] {
+    color: #f2e9e2;
+    background: #15110f;
+    color-scheme: dark;
+    --ink: #f2e9e2;
+    --muted: #b7aaa1;
+    --line: #443833;
+    --cream: #15110f;
+    --paper: #211b18;
+    --clay-soft: #40231f;
+    --gold-soft: #3b3020;
+    --blue-soft: #203337;
+    --accent: #a95347;
+    --accent-hover: #bc6254;
+    --accent-soft: #3b2925;
+    --accent-text: #d98575;
+    --accent-ring: rgba(201, 111, 95, .2);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 12px 34px rgba(0, 0, 0, .18)
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] .app-shell,
+html[data-theme="dark"] .main,
+html[data-theme="dark"] .content,
+html[data-theme="dark"] .system-state,
+html[data-theme="dark"] .setup-page,
+html[data-theme="dark"] .auth-page {
+    color: var(--ink);
+    background: var(--cream)
+}
+
+html[data-theme="dark"] .topbar {
+    border-color: var(--line);
+    background: rgba(21, 17, 15, .92)
+}
+
+html[data-theme="dark"] .page-title h1,
+html[data-theme="dark"] .panel-head h2,
+html[data-theme="dark"] .service-copy h2,
+html[data-theme="dark"] .catalog-heading h2,
+html[data-theme="dark"] .catalog-stats strong,
+html[data-theme="dark"] .product-cell strong,
+html[data-theme="dark"] .inventory-group-identity strong,
+html[data-theme="dark"] .smart-view-select strong,
+html[data-theme="dark"] .auth-form-card h2,
+html[data-theme="dark"] .modal h2,
+html[data-theme="dark"] .catalog-dialog h2 {
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .icon-btn,
+html[data-theme="dark"] .secondary-btn,
+html[data-theme="dark"] .select-btn,
+html[data-theme="dark"] .view-options-toggle,
+html[data-theme="dark"] .search-box,
+html[data-theme="dark"] .smart-view-select,
+html[data-theme="dark"] .catalog-select,
+html[data-theme="dark"] .quantity-stepper button,
+html[data-theme="dark"] .row-actions button,
+html[data-theme="dark"] .auth-input,
+html[data-theme="dark"] .mfa-code-input {
+    border-color: var(--line);
+    background: #29211d;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .search-box input,
+html[data-theme="dark"] .auth-input input {
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .search-box input,
+html[data-theme="dark"] .auth-input input,
+html[data-theme="dark"] .mfa-code-input input {
+    background: transparent
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+    color: #84776f
+}
+
+html[data-theme="dark"] .inventory-options-bar {
+    border-color: var(--line);
+    background: linear-gradient(180deg, #241d1a, #1d1815)
+}
+
+html[data-theme="dark"] .stock-filter-row,
+html[data-theme="dark"] .inventory-results-bar,
+html[data-theme="dark"] .inventory-summary,
+html[data-theme="dark"] .table-wrap th {
+    border-color: var(--line);
+    background: #1b1715;
+    color: #a99c93
+}
+
+html[data-theme="dark"] .table-wrap td {
+    border-color: #3a302c;
+    color: #d3c7bf
+}
+
+html[data-theme="dark"] .category-tag {
+    color: #c8bbb2;
+    background: #332b27
+}
+
+html[data-theme="dark"] .inventory-groups,
+html[data-theme="dark"] .inventory-group,
+html[data-theme="dark"] .inventory-subgroup {
+    background: #171311
+}
+
+html[data-theme="dark"] .inventory-group-head {
+    background: #29211d;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .inventory-group-head:hover {
+    background: #302621
+}
+
+html[data-theme="dark"] .inventory-subgroup-content,
+html[data-theme="dark"] .catalog-panel .table-wrap td:first-child,
+html[data-theme="dark"] .catalog-panel .inactive-row td:first-child {
+    border-color: var(--line);
+    background: var(--paper)
+}
+
+html[data-theme="dark"] .prep-card,
+html[data-theme="dark"] .shop-item,
+html[data-theme="dark"] .receipt-row,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .catalog-dialog,
+html[data-theme="dark"] .system-state-card,
+html[data-theme="dark"] .setup-card,
+html[data-theme="dark"] .reset-card,
+html[data-theme="dark"] .mfa-card {
+    border-color: var(--line);
+    background: var(--paper);
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .prep-card.selected {
+    border-color: #965344;
+    background: #30201c
+}
+
+html[data-theme="dark"] .auth-form-panel {
+    background: #191513
+}
+
+html[data-theme="dark"] .modal-backdrop {
+    background: rgba(5, 3, 2, .72)
+}
+
+html[data-theme="dark"] .modal-drop,
+html[data-theme="dark"] .scan-summary,
+html[data-theme="dark"] .big-food,
+html[data-theme="dark"] .date-badge {
+    border-color: var(--line);
+    background: #2b231f;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .readonly-badge,
+html[data-theme="dark"] .admin-badge {
+    border-color: var(--line);
+    background: #29211d
+}
+
+html[data-theme="dark"] .theme-option-icon {
+    color: var(--accent-text)
+}
+
+/* Dark theme polish: softer wine accents and controls designed for dark surfaces. */
+html[data-theme="dark"] .sidebar {
+    background: linear-gradient(180deg, #4b2724 0%, #321b19 100%)
+}
+
+html[data-theme="dark"] .nav-item.active {
+    background: rgba(226, 167, 151, .11);
+    box-shadow: inset 3px 0 #c98270
+}
+
+html[data-theme="dark"] .nav-item b,
+html[data-theme="dark"] .side-card-icon,
+html[data-theme="dark"] .modern-switch input:checked + .switch-track,
+html[data-theme="dark"] .theme-option.selected .theme-check {
+    border-color: var(--accent);
+    background: var(--accent)
+}
+
+html[data-theme="dark"] .primary-btn {
+    background: var(--accent);
+    box-shadow: 0 5px 14px rgba(70, 25, 21, .24)
+}
+
+html[data-theme="dark"] .primary-btn:hover {
+    background: var(--accent-hover)
+}
+
+html[data-theme="dark"] .text-btn,
+html[data-theme="dark"] .eyebrow,
+html[data-theme="dark"] .catalog-tabs button.active,
+html[data-theme="dark"] .inventory-results-bar button,
+html[data-theme="dark"] .stock-filter-row .reset-filters,
+html[data-theme="dark"] .prep-card-copy > span {
+    color: var(--accent-text)
+}
+
+html[data-theme="dark"] .service-banner {
+    background: radial-gradient(circle at 82% 10%, rgba(224, 160, 136, .11), transparent 28%),
+    linear-gradient(110deg, #4b2522, #653029 60%, #3f211e);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .16)
+}
+
+html[data-theme="dark"] .bar-chart {
+    border-color: #4b403a;
+    background: repeating-linear-gradient(to bottom, transparent 0, transparent 45px, #3b322e 46px)
+}
+
+html[data-theme="dark"] .bar {
+    background: #5b625b
+}
+
+html[data-theme="dark"] .bar-item:nth-child(6) .bar,
+html[data-theme="dark"] .stock-line i,
+html[data-theme="dark"] .critical-dot {
+    background: #bd6854
+}
+
+html[data-theme="dark"] .progress-ring circle {
+    stroke: #493f3a
+}
+
+html[data-theme="dark"] .progress-ring .ring-value {
+    stroke: #c16d59
+}
+
+html[data-theme="dark"] .chart-top span {
+    color: #8fc09a;
+    background: #25382a
+}
+
+html[data-theme="dark"] .stat-icon.clay {
+    color: #d17a65;
+    background: #402925
+}
+
+html[data-theme="dark"] .stat-icon.gold {
+    color: #d2a44d;
+    background: #3b3120
+}
+
+html[data-theme="dark"] .stat-icon.green {
+    color: #8fba98;
+    background: #26372b
+}
+
+html[data-theme="dark"] .stat-icon.blue {
+    color: #7faeb7;
+    background: #22363a
+}
+
+html[data-theme="dark"] .food-icon,
+html[data-theme="dark"] .big-food,
+html[data-theme="dark"] .file-icon,
+html[data-theme="dark"] .upload-icon,
+html[data-theme="dark"] .modal-art,
+html[data-theme="dark"] .green-dot,
+html[data-theme="dark"] .clay-dot,
+html[data-theme="dark"] .blue-dot {
+    background: #312824
+}
+
+html[data-theme="dark"] .file-icon,
+html[data-theme="dark"] .upload-icon,
+html[data-theme="dark"] .modal-art,
+html[data-theme="dark"] .clay-dot {
+    color: #cc7460
+}
+
+html[data-theme="dark"] .green-dot {
+    color: #88b593
+}
+
+html[data-theme="dark"] .blue-dot {
+    color: #78aab3
+}
+
+html[data-theme="dark"] .status.critical {
+    color: #e49a88;
+    background: #442823
+}
+
+html[data-theme="dark"] .status.critical span {
+    background: #d67862
+}
+
+html[data-theme="dark"] .status.low {
+    color: #ddbd72;
+    background: #40351f
+}
+
+html[data-theme="dark"] .status.low span {
+    background: #d8a846
+}
+
+html[data-theme="dark"] .status.healthy {
+    color: #9ac4a3;
+    background: #27392b
+}
+
+html[data-theme="dark"] .status.healthy span {
+    background: #76aa82
+}
+
+html[data-theme="dark"] .status.neutral {
+    color: #bbb0a8;
+    background: #332c28
+}
+
+html[data-theme="dark"] .status.neutral span {
+    background: #92877f
+}
+
+html[data-theme="dark"] .counter button,
+html[data-theme="dark"] .recipe-visual button,
+html[data-theme="dark"] .group-chevron,
+html[data-theme="dark"] .custom-check {
+    border-color: var(--line);
+    background: #2c2420;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .catalog-field input,
+html[data-theme="dark"] .catalog-field select,
+html[data-theme="dark"] .mfa-enrollment {
+    border-color: var(--line);
+    background: #29211d;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .catalog-field input:focus,
+html[data-theme="dark"] .catalog-field select:focus,
+html[data-theme="dark"] .auth-input:focus-within,
+html[data-theme="dark"] .mfa-code-input:focus-within {
+    border-color: #9b5d50;
+    box-shadow: 0 0 0 3px var(--accent-ring)
+}
+
+html[data-theme="dark"] .counter button:hover,
+html[data-theme="dark"] .row-actions button:hover,
+html[data-theme="dark"] .recipe-visual button:hover {
+    border-color: #805046;
+    background: #382925;
+    color: #e19a89
+}
+
+html[data-theme="dark"] .upload-zone {
+    border-color: #59443d;
+    background: #211b18;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .upload-zone:hover {
+    border-color: #9b5d50;
+    background: #261e1b
+}
+
+html[data-theme="dark"] .mini-tasks > div,
+html[data-theme="dark"] .mini-tasks .pending,
+html[data-theme="dark"] .ai-note {
+    border-color: var(--line);
+    background: #29231f
+}
+
+html[data-theme="dark"] .mini-tasks span,
+html[data-theme="dark"] .mini-tasks b {
+    color: #c8bbb2
+}
+
+html[data-theme="dark"] .time-chip,
+html[data-theme="dark"] .ai-note {
+    color: #d3b87b;
+    background: #382f20
+}
+
+html[data-theme="dark"] .stock-line {
+    background: #443a35
+}
+
+html[data-theme="dark"] .summary-ring {
+    border-color: #4a403a;
+    box-shadow: inset 0 0 0 1px #5a4c45;
+    color: #ce725d
+}
+
+html[data-theme="dark"] .aisle-head,
+html[data-theme="dark"] .shop-row,
+html[data-theme="dark"] .attention-row,
+html[data-theme="dark"] .timeline > div,
+html[data-theme="dark"] .receipt-row {
+    border-color: #403631
+}
+
+html[data-theme="dark"] .aisle-head b {
+    color: #c2b5ad;
+    background: #342c28
+}
+
+html[data-theme="dark"] .stock-filter-row > button {
+    color: #b8aba3;
+    background: #2d2622
+}
+
+html[data-theme="dark"] .stock-filter-row > button > b {
+    background: #403733;
+    color: #d5c9c1
+}
+
+html[data-theme="dark"] .stock-filter-row > button.active {
+    border-color: #805046;
+    background: #3a2925;
+    color: #e09584;
+    box-shadow: none
+}
+
+html[data-theme="dark"] .filter-scroll button.active {
+    color: #c4d3c7;
+    background: #2b382e
+}
+
+html[data-theme="dark"] .global-view-button {
+    border-color: #70473f;
+    background: linear-gradient(145deg, #352622, #2b211e);
+    color: #dfa08f;
+    box-shadow: none
+}
+
+html[data-theme="dark"] .global-view-button:hover {
+    border-color: #925d51;
+    background: #3a2925;
+    box-shadow: none
+}
+
+html[data-theme="dark"] .global-view-button small {
+    color: #bc8c80
+}
+
+html[data-theme="dark"] .catalog-tabs button.active {
+    border-color: #bf6a58
+}
+
+html[data-theme="dark"] .catalog-stats > div {
+    color: #c87562
+}
+
+html[data-theme="dark"] .switch-track {
+    background: #514640
+}
+
+html[data-theme="dark"] .switch-track i {
+    background: #d9cec6
+}
+
+html[data-theme="dark"] .theme-option.selected {
+    border-color: #8e574c;
+    background: color-mix(in srgb, var(--paper) 84%, var(--accent) 16%);
+    box-shadow: 0 0 0 3px var(--accent-ring)
+}
+
+html[data-theme="dark"] .theme-option:hover {
+    border-color: #805046
+}
+
+html[data-theme="dark"] :is(input, select, textarea, button):focus-visible {
+    outline: 2px solid #c97a68;
+    outline-offset: 2px
+}
+
+@media (max-width: 650px) {
+    .settings-card {
+        padding: 22px
+    }
+
+    .theme-options {
+        grid-template-columns: 1fr
+    }
 }
