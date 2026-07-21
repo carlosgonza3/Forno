@@ -3,6 +3,8 @@
 
 create extension if not exists pgcrypto;
 
+create schema if not exists private;
+
 create type public.user_role as enum ('admin', 'local');
 create type public.movement_type as enum ('purchase', 'usage', 'prep', 'waste', 'adjustment');
 create type public.receipt_status as enum ('uploaded', 'processing', 'review', 'approved', 'failed');
@@ -33,7 +35,7 @@ create table public.suppliers (
 create table public.inventory_items (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  sku text unique,
+  sku text not null unique,
   department_id uuid references public.departments(id),
   supplier_id uuid references public.suppliers(id),
   base_unit text not null,
@@ -118,6 +120,53 @@ create table public.audit_log (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+create sequence if not exists private.inventory_sku_sequence as bigint start with 1;
+
+create or replace function private.next_inventory_sku()
+returns text
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  candidate text;
+begin
+  loop
+    candidate := 'FOR-' || lpad(nextval('private.inventory_sku_sequence'::regclass)::text, 6, '0');
+    exit when not exists (select 1 from public.inventory_items where sku = candidate);
+  end loop;
+  return candidate;
+end;
+$$;
+
+revoke all on function private.next_inventory_sku() from public, anon, authenticated;
+
+create or replace function private.enforce_inventory_sku()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.sku := private.next_inventory_sku();
+  elsif new.sku is distinct from old.sku then
+    raise exception 'Inventory SKU is immutable after creation.' using errcode = '22023';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.enforce_inventory_sku() from public, anon, authenticated;
+
+create trigger enforce_inventory_sku
+  before insert or update of sku on public.inventory_items
+  for each row execute function private.enforce_inventory_sku();
+
+comment on column public.inventory_items.sku is
+  'Immutable system identifier in FOR-000001 format, generated and maintained by PostgreSQL.';
 
 create or replace function public.is_admin()
 returns boolean language sql stable security definer set search_path = '' as $$

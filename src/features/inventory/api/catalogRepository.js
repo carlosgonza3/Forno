@@ -9,8 +9,6 @@ const ITEM_SELECT = `
   par_level,
   reorder_point,
   unit_cost,
-  package_size,
-  package_unit,
   active,
   department:departments(id, name),
   supplier:suppliers(id, name)
@@ -48,15 +46,12 @@ export async function saveCatalogItem(values) {
   const client = requireClient();
   const payload = {
     name: values.name.trim(),
-    sku: values.sku.trim() || null,
     department_id: values.departmentId || null,
     supplier_id: values.supplierId || null,
     base_unit: values.baseUnit.trim(),
     par_level: Number(values.parLevel),
     reorder_point: Number(values.reorderPoint),
     unit_cost: Number(values.unitCost),
-    package_size: values.packageSize === "" ? null : Number(values.packageSize),
-    package_unit: values.packageSize === "" ? null : values.packageUnit.trim() || values.baseUnit.trim(),
     active: values.active,
     updated_at: new Date().toISOString(),
   };

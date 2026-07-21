@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronRight,
     CircleOff,
+    Download,
     FilterX,
     Layers3,
     Pencil,
@@ -33,6 +34,12 @@ import {
     UNIT_OPTIONS,
     unitLabel
 } from "../catalogModel";
+import {
+    availableInventoryCsvColumns,
+    defaultInventoryExportName,
+    DEFAULT_INVENTORY_CSV_COLUMN_KEYS,
+    downloadInventoryCsv,
+} from "../inventoryCsv";
 
 const money = new Intl.NumberFormat("es-SV", {style: "currency", currency: "USD"});
 const emptyItem = {
@@ -45,8 +52,6 @@ const emptyItem = {
     parLevel: "0",
     reorderPoint: "0",
     unitCost: "0",
-    packageSize: "",
-    packageUnit: "",
     active: true,
 };
 const emptySupplier = {id: null, name: "", email: "", phone: "", active: true};
@@ -75,6 +80,7 @@ export default function CatalogPage() {
     const [error, setError] = useState("");
     const [itemDraft, setItemDraft] = useState(null);
     const [supplierDraft, setSupplierDraft] = useState(null);
+    const [exportOpen, setExportOpen] = useState(false);
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -157,8 +163,6 @@ export default function CatalogPage() {
             parLevel: String(item.par_level),
             reorderPoint: String(item.reorder_point),
             unitCost: String(item.unit_cost),
-            packageSize: item.package_size == null ? "" : String(item.package_size),
-            packageUnit: item.package_unit ?? "",
             active: item.active,
         });
     }
@@ -296,6 +300,11 @@ export default function CatalogPage() {
 
             {tab === "items" && <div className="inventory-results-bar">
                 <span> <strong>{items.length}</strong> de {catalog.items.filter((item) => item.active || includeInactive).length} ingredientes</span>
+                <button className="inventory-export-button" disabled={loading || items.length === 0}
+                        onClick={() => setExportOpen(true)}
+                        title="Descargar los resultados visibles con la agrupación y el orden actuales">
+                    <Download size={15}/><span>Exportar CSV</span><b>{items.length}</b>
+                </button>
             </div>}
 
             {error && <div className="catalog-message error">{error}
@@ -321,12 +330,68 @@ export default function CatalogPage() {
             setItemDraft(null);
             await refresh();
         }}/>}
-        {supplierDraft &&
+        {supplierDraft && (
             <SupplierDialog draft={supplierDraft} onClose={() => setSupplierDraft(null)} onSaved={async () => {
                 setSupplierDraft(null);
                 await refresh();
-            }}/>}
+            }}/>
+        )}
+        {exportOpen && (
+            <InventoryExportDialog groups={itemGroups} groupBy={groupBy} itemCount={items.length}
+                                   onClose={() => setExportOpen(false)}/>
+        )}
     </>;
+}
+
+function InventoryExportDialog({groups, groupBy, itemCount, onClose}) {
+    const columns = availableInventoryCsvColumns(groupBy);
+    const defaultKeys = groupBy === "none"
+        ? DEFAULT_INVENTORY_CSV_COLUMN_KEYS
+        : ["group", ...DEFAULT_INVENTORY_CSV_COLUMN_KEYS];
+    const [filename, setFilename] = useState(defaultInventoryExportName);
+    const [columnKeys, setColumnKeys] = useState(defaultKeys);
+    const allSelected = columnKeys.length === columns.length;
+
+    function toggleColumn(key) {
+        setColumnKeys((current) => current.includes(key)
+            ? current.filter((columnKey) => columnKey !== key)
+            : [...current, key]);
+    }
+
+    function submit(event) {
+        event.preventDefault();
+        if (!filename.trim() || columnKeys.length === 0) return;
+        downloadInventoryCsv(groups, {groupBy, columnKeys, filename});
+        onClose();
+    }
+
+    return <div className="modal-backdrop" onMouseDown={onClose}>
+        <form className="modal catalog-dialog inventory-export-dialog" onMouseDown={(event) => event.stopPropagation()}
+              onSubmit={submit}>
+            <button type="button" className="icon-btn modal-close" onClick={onClose} aria-label="Cerrar exportación"><X size={18}/></button>
+            <span className="eyebrow">EXPORTAR INVENTARIO</span><h2>Personaliza tu archivo CSV</h2>
+            <p>Se exportarán {itemCount} {itemCount === 1 ? "ingrediente" : "ingredientes"} respetando los filtros, la agrupación y el orden actuales.</p>
+            <label className="catalog-field wide export-filename-field"><span>Nombre del archivo</span>
+                <div><input required value={filename} maxLength={100} onChange={(event) => setFilename(event.target.value)}
+                            aria-label="Nombre del archivo"/><b>.csv</b></div>
+            </label>
+            <fieldset className="export-columns-fieldset">
+                <legend>Columnas a incluir</legend><button type="button" className="export-columns-toggle"
+                    onClick={() => setColumnKeys(allSelected ? [] : columns.map((column) => column.key))}>
+                    {allSelected ? "Limpiar" : "Seleccionar todas"}</button>
+                <div className="export-columns-grid">{columns.map((column) => <label key={column.key}
+                    className={columnKeys.includes(column.key) ? "selected" : ""}>
+                    <input type="checkbox" checked={columnKeys.includes(column.key)}
+                           onChange={() => toggleColumn(column.key)}/><span>{column.label}</span>
+                </label>)}</div>
+            </fieldset>
+            <div className="export-dialog-summary"><Download size={16}/><span><strong>{columnKeys.length}</strong> columnas · <strong>{itemCount}</strong> filas</span></div>
+            <div className="dialog-actions">
+                <button type="button" className="secondary-btn" onClick={onClose}>Cancelar</button>
+                <button className="primary-btn" disabled={!filename.trim() || columnKeys.length === 0}><Download size={16}/>Descargar CSV</button>
+            </div>
+        </form>
+    </div>;
 }
 
 function ViewSelect({icon: Icon, label, value, onChange, options}) {
@@ -460,16 +525,21 @@ function ItemDialog({draft, departments, suppliers, onClose, onSaved}) {
                                                                               ...values,
                                                                               name: event.target.value
                                                                           })}/></label>
-        <label className="catalog-field"><span>SKU</span><input value={values.sku} onChange={(event) => setValues({
-            ...values,
-            sku: event.target.value
-        })} placeholder="FOR-0001"/></label>
-        <label className="catalog-field"><span>Unidad base *</span><select required value={values.baseUnit}
+        <div className="catalog-generated-field wide">
+            <ShieldCheck size={20}/>
+            <div>
+                <span>SKU automático</span>
+                <strong>{values.sku || "Se asignará al guardar"}</strong>
+                <small>Identificador permanente administrado por el sistema.</small>
+            </div>
+        </div>
+
+        <label className="catalog-field catalog-unit-field"><span>Unidad de inventario *</span><select required value={values.baseUnit}
                                                                            onChange={(event) => setValues({
                                                                                ...values,
                                                                                baseUnit: event.target.value
                                                                            })}>{UNIT_OPTIONS.map(([value, label]) =>
-            <option value={value} key={value}>{label}</option>)}</select></label>
+            <option value={value} key={value}>{label}</option>)}</select><small>Existencia, niveles y costo usan esta misma unidad.</small></label>
         <label className="catalog-field"><span>Departamento</span><select value={values.departmentId}
                                                                           onChange={(event) => setValues({
                                                                               ...values,
@@ -490,10 +560,8 @@ function ItemDialog({draft, departments, suppliers, onClose, onSaved}) {
                      onChange={(value) => setValues({...values, parLevel: value})}/>
         <NumberField label="Punto de reorden" value={values.reorderPoint}
                      onChange={(value) => setValues({...values, reorderPoint: value})}/>
-        <NumberField label="Costo unitario ($)" value={values.unitCost}
+        <NumberField label="Costo por unidad de inventario ($)" value={values.unitCost}
                      onChange={(value) => setValues({...values, unitCost: value})} step="0.01"/>
-        <NumberField label="Tamaño del empaque" value={values.packageSize}
-                     onChange={(value) => setValues({...values, packageSize: value})} required={false}/>
     </CatalogDialog>;
 }
 

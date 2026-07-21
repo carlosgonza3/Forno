@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogPage from "./CatalogPage";
 
 const loadCatalog = vi.fn();
+const downloadInventoryCsv = vi.fn();
 let authRole = "local";
 
 vi.mock("../../auth/AuthProvider", () => ({
@@ -15,6 +16,11 @@ vi.mock("../api/catalogRepository", () => ({
   saveSupplier: vi.fn(),
   setCatalogItemActive: vi.fn(),
   setSupplierActive: vi.fn(),
+}));
+
+vi.mock("../inventoryCsv", async (importOriginal) => ({
+  ...await importOriginal(),
+  downloadInventoryCsv: (...args) => downloadInventoryCsv(...args),
 }));
 
 const produce = { id: "produce", name: "Frutas y verduras", sort_order: 10 };
@@ -31,8 +37,6 @@ function item(overrides) {
     par_level: overrides.par,
     reorder_point: overrides.reorder,
     unit_cost: 1,
-    package_size: null,
-    package_unit: null,
     active: overrides.active ?? true,
     department: overrides.department,
     supplier: market,
@@ -45,6 +49,7 @@ describe("CatalogPage inventory explorer", () => {
   beforeEach(() => {
     authRole = "local";
     loadCatalog.mockClear();
+    downloadInventoryCsv.mockClear();
     loadCatalog.mockResolvedValue({
       departments: [produce, pantry],
       suppliers: [market],
@@ -88,6 +93,49 @@ describe("CatalogPage inventory explorer", () => {
     expect(createButton).toHaveClass("catalog-create-button");
     expect(createButton.closest(".catalog-panel-head")).toBeInTheDocument();
     expect(createButton.closest(".catalog-tools")).not.toBeInTheDocument();
+  });
+
+  it("uses one clear inventory unit without package fields in the ingredient editor", async () => {
+    authRole = "admin";
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    const editButtons = screen.getAllByTitle("Editar");
+    fireEvent.click(editButtons[0]);
+
+    expect(screen.getByLabelText(/^Unidad de inventario/)).toBeInTheDocument();
+    expect(screen.getByText("Existencia, niveles y costo usan esta misma unidad.")).toBeInTheDocument();
+    expect(screen.getByText("Costo por unidad de inventario ($)")).toBeInTheDocument();
+    expect(screen.getByText("SKU automático")).toBeInTheDocument();
+    expect(screen.getByText("Identificador permanente administrado por el sistema.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("SKU")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tamaño del empaque")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unidad del empaque")).not.toBeInTheDocument();
+  });
+
+  it("exports the currently filtered, grouped, and sorted inventory result", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    fireEvent.change(screen.getByLabelText("Agrupación"), { target: { value: "department" } });
+    fireEvent.click(screen.getByRole("button", { name: /Críticos/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Exportar CSV/ }));
+
+    expect(screen.getByRole("heading", { name: "Personaliza tu archivo CSV" })).toBeInTheDocument();
+    expect(screen.getByText(/Se exportarán 1 ingrediente/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Nombre del archivo"), { target: { value: "Conteo crítico" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Costo por unidad de inventario (USD)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Descargar CSV" }));
+
+    expect(downloadInventoryCsv).toHaveBeenCalledTimes(1);
+    const [groups, options] = downloadInventoryCsv.mock.calls[0];
+    expect(options.groupBy).toBe("department");
+    expect(options.filename).toBe("Conteo crítico");
+    expect(options.columnKeys).toContain("group");
+    expect(options.columnKeys).not.toContain("unitCost");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe("Frutas y verduras");
+    expect(groups[0].items.map((entry) => entry.name)).toEqual(["Tomate"]);
   });
 
   it("collapses and expands an inventory group", async () => {
