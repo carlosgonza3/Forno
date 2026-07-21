@@ -97,6 +97,17 @@ export function AuthProvider({ children }) {
     return supabase.auth.resetPasswordForEmail(email, { redirectTo });
   }, []);
 
+  const refreshIdentity = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      setError("No pudimos actualizar la sesión segura.");
+      return;
+    }
+    setSession(data.session);
+    await loadIdentity(data.session);
+  }, [loadIdentity]);
+
   const value = useMemo(
     () => ({
       configured: isSupabaseConfigured,
@@ -111,8 +122,9 @@ export function AuthProvider({ children }) {
       signIn,
       signOut,
       requestPasswordReset,
+      refreshIdentity,
     }),
-    [assuranceLevel, error, loading, profile, requestPasswordReset, session, signIn, signOut],
+    [assuranceLevel, error, loading, profile, refreshIdentity, requestPasswordReset, session, signIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

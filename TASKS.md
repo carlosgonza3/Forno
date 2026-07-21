@@ -6,12 +6,14 @@ This backlog turns the current interactive prototype into a secure, multi-user r
 
 | Task | Status | Implemented in the current branch | Remaining |
 | --- | --- | --- | --- |
-| FORNO-101 | In progress | Development project linked; validated Vite environment contract, browser-safe Supabase client, versioned remote schema, explicit grants, Auth-profile trigger, `.env.example`, and setup screen | Create production project and expand development seed data |
+| FORNO-101 | In progress | Development project linked; validated Vite environment contract, browser-safe Supabase client, versioned remote schema, explicit grants, Auth-profile trigger, `.env.example`, setup screen, and workbook-backed development catalog | Create the production project |
 | FORNO-102 | In progress | Hash-based application routes, feature folders, protected application boundary, lazy-loaded operations module | Extract each prototype screen into its own feature and repository |
-| FORNO-103 | In progress | Login, local-device logout, session restoration, PKCE password recovery, profile-role guard, and Admin AAL2 gate | Configure production SMTP and build TOTP enrollment/challenge plus administration UI |
+| FORNO-103 | In progress | Login, local-device logout, session restoration, PKCE password recovery, profile-role guard, and Admin TOTP enrollment/challenge with an AAL2 gate | Configure production SMTP, passkeys, and user administration UI |
 | FORNO-104 | In progress | Versioned RLS policies and explicit Data API grants are deployed to development | Add automated role-policy and database-function tests |
 | FORNO-201 | In progress | Tested mass, volume, count, alias, package, precision, and dimension validation kernel | Persist unit definitions and build Admin conversion UI |
-| FORNO-605 | In progress | Vitest/jsdom harness with twelve domain, auth-error, and protected-route tests | Add database integration and browser end-to-end suites |
+| FORNO-202 | In progress | Supabase-backed ingredient and supplier catalog; Admin create/edit/archive controls; Local read-only view; department/search filters | Add department editing, purchase-unit conversion fields, ordering metadata, and duplicate warnings |
+| FORNO-206 | In progress | Idempotent migration of 224 workbook rows and 24 normalized suppliers with stable source SKUs | Add reusable Admin import preview, validation warnings, and approval workflow |
+| FORNO-605 | In progress | Vitest/jsdom harness with fifteen domain, auth-error, protected-route, and catalog-model tests | Add database integration and browser end-to-end suites |
 
 ## Conventions
 

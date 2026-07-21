@@ -36,6 +36,7 @@ import {
     X,
 } from "lucide-react";
 import { useAuth } from "./features/auth/AuthProvider";
+import CatalogPage from "./features/inventory/pages/CatalogPage";
 
 const navItems = [{
     id: "dashboard",
@@ -45,8 +46,7 @@ const navItems = [{
     {
         id: "inventory",
         label: "Inventario",
-        icon: Warehouse,
-        count: 5
+        icon: Warehouse
     },
     {
         id: "prep",
@@ -479,7 +479,7 @@ export default function App() {
     return <div className="app-shell">
         <Sidebar page={page} setPage={setPage} open={mobileOpen} setOpen={setMobileOpen} identity={identity} onSignOut={handleSignOut} signingOut={signingOut} />
         {mobileOpen && <div className="side-overlay" onClick={() => setMobileOpen(false)} />}
-        <main className="main"><Header page={page} setOpen={setMobileOpen} onUpload={() => setUploadOpen(true)} /><div className="content">{page === "dashboard" && <Dashboard inventory={inventory} setPage={setPage} />}{page === "inventory" && <Inventory inventory={inventory} setInventory={setInventory} />}{page === "prep" && <PrepPage />}{page === "recipes" && <RecipesPage />}{page === "shopping" && <ShoppingPage inventory={inventory} />}{page === "receipts" && <ReceiptsPage onUpload={() => setUploadOpen(true)} />}</div></main>
+        <main className="main"><Header page={page} setOpen={setMobileOpen} onUpload={() => setUploadOpen(true)} /><div className="content">{page === "dashboard" && <Dashboard inventory={inventory} setPage={setPage} />}{page === "inventory" && <CatalogPage />}{page === "prep" && <PrepPage />}{page === "recipes" && <RecipesPage />}{page === "shopping" && <ShoppingPage inventory={inventory} />}{page === "receipts" && <ReceiptsPage onUpload={() => setUploadOpen(true)} />}</div></main>
         {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} />}
     </div>;
 }
