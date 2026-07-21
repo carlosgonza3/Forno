@@ -8,8 +8,11 @@ The implementation backlog for the next operational phase is maintained in [`TAS
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
+
+Populate `.env.local` with the project URL and publishable key from Supabase. The service-role key must never be added to a `VITE_` variable. Without credentials, the application shows its setup guide; the approved visual prototype remains available at `#/preview`.
 
 Build verification:
 
@@ -27,6 +30,8 @@ The repository includes a GitHub Actions workflow that builds and deploys the pr
 4. The deployment URL will appear in the workflow summary after the `Deploy to GitHub Pages` action succeeds.
 
 The Vite base path is derived automatically from `GITHUB_REPOSITORY`, so project-page URLs such as `https://owner.github.io/Forno/` load assets correctly.
+
+Before deploying the connected application, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` under **GitHub → Settings → Secrets and variables → Actions → Variables**. The Pages workflow supplies these browser-public values to Vite at build time.
 
 ## Included workflows
 

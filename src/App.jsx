@@ -19,6 +19,7 @@ import {
     LayoutDashboard,
     Leaf,
     ListFilter,
+    LogOut,
     Menu,
     Minus,
     Package,
@@ -34,6 +35,7 @@ import {
     Warehouse,
     X,
 } from "lucide-react";
+import { useAuth } from "./features/auth/AuthProvider";
 
 const navItems = [{
     id: "dashboard",
@@ -273,7 +275,10 @@ function Sidebar({
                      page,
                      setPage,
                      open,
-                     setOpen
+                     setOpen,
+                     identity,
+                     onSignOut,
+                     signingOut
                  }) {
     return (
         <aside className={`sidebar ${open ? "open" : ""}`}>
@@ -291,7 +296,7 @@ function Sidebar({
                 <button className="nav-item"><Settings size={19} /><span>Configuración</span></button>
             </nav>
             <div className="side-card"><div className="side-card-icon"><Sparkles size={18} /></div><div><strong>Forno AI</strong><span>Procesa facturas en segundos</span></div><ChevronRight size={16} /></div>
-            <div className="user-card"><div className="user-avatar">CG</div><div><strong>Carlos González</strong><span>Administrador</span></div><button className="more">•••</button></div>
+            <div className="user-card"><div className="user-avatar">{identity.initials}</div><div><strong>{identity.name}</strong><span>{identity.role}</span></div>{identity.authenticated && <button className="signout-button" onClick={onSignOut} disabled={signingOut} title="Cerrar sesión" aria-label="Cerrar sesión"><LogOut size={17} /></button>}</div>
         </aside>
     );
 }
@@ -451,12 +456,28 @@ function UploadModal({
 }
 
 export default function App() {
+    const { profile, user, signOut } = useAuth();
     const [page, setPage] = useState("dashboard");
     const [mobileOpen, setMobileOpen] = useState(false);
     const [uploadOpen, setUploadOpen] = useState(false);
+    const [signingOut, setSigningOut] = useState(false);
     const [inventory, setInventory] = useState(inventorySeed);
+    const displayName = profile?.display_name || user?.email?.split("@")[0] || "Vista previa";
+    const identity = {
+        authenticated: Boolean(user),
+        name: displayName,
+        role: profile?.role === "admin" ? "Administrador" : profile?.role === "local" ? "Usuario local" : "Prototipo",
+        initials: displayName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("") || "F"
+    };
+
+    async function handleSignOut() {
+        setSigningOut(true);
+        await signOut();
+        setSigningOut(false);
+    }
+
     return <div className="app-shell">
-        <Sidebar page={page} setPage={setPage} open={mobileOpen} setOpen={setMobileOpen} />
+        <Sidebar page={page} setPage={setPage} open={mobileOpen} setOpen={setMobileOpen} identity={identity} onSignOut={handleSignOut} signingOut={signingOut} />
         {mobileOpen && <div className="side-overlay" onClick={() => setMobileOpen(false)} />}
         <main className="main"><Header page={page} setOpen={setMobileOpen} onUpload={() => setUploadOpen(true)} /><div className="content">{page === "dashboard" && <Dashboard inventory={inventory} setPage={setPage} />}{page === "inventory" && <Inventory inventory={inventory} setInventory={setInventory} />}{page === "prep" && <PrepPage />}{page === "recipes" && <RecipesPage />}{page === "shopping" && <ShoppingPage inventory={inventory} />}{page === "receipts" && <ReceiptsPage onUpload={() => setUploadOpen(true)} />}</div></main>
         {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} />}

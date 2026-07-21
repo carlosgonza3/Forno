@@ -8,4 +8,8 @@ export default defineConfig({
     ? `/${process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "Forno"}/`
     : "/",
   plugins: [react()],
+  test: {
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.js",
+  },
 });

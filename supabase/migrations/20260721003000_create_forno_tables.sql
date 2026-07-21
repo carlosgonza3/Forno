@@ -1,5 +1,4 @@
--- Forno inventory — initial Supabase schema
--- Run in a new Supabase project, then create the first user through Auth.
+-- Forno inventory — initial remote schema
 
 create extension if not exists pgcrypto;
 
@@ -124,8 +123,6 @@ returns boolean language sql stable security definer set search_path = '' as $$
   select exists(select 1 from public.profiles where id = auth.uid() and role = 'admin');
 $$;
 
-grant execute on function public.is_admin() to authenticated;
-
 alter table public.profiles enable row level security;
 alter table public.departments enable row level security;
 alter table public.suppliers enable row level security;
@@ -199,37 +196,3 @@ grant execute on function public.is_admin() to authenticated;
 
 grant all privileges on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;
-
--- Auth users receive a local application profile automatically.
-create schema if not exists private;
-revoke all on schema private from public, anon, authenticated;
-
-create or replace function private.handle_new_auth_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  insert into public.profiles (id, display_name, role)
-  values (
-    new.id,
-    coalesce(
-      nullif(trim(new.raw_user_meta_data ->> 'display_name'), ''),
-      nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
-      'Forno user'
-    ),
-    'local'::public.user_role
-  )
-  on conflict (id) do nothing;
-
-  return new;
-end;
-$$;
-
-revoke all on function private.handle_new_auth_user() from public, anon, authenticated;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function private.handle_new_auth_user();

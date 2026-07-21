@@ -1,0 +1,3 @@
+-- Intentionally empty bootstrap migration.
+-- It was recorded by the linked development project before the schema was
+-- added; retaining its timestamp keeps local and remote migration history aligned.

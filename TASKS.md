@@ -2,6 +2,17 @@
 
 This backlog turns the current interactive prototype into a secure, multi-user restaurant inventory system. Tasks are ordered by dependency, not only by feature visibility.
 
+## Current delivery status
+
+| Task | Status | Implemented in the current branch | Remaining |
+| --- | --- | --- | --- |
+| FORNO-101 | In progress | Development project linked; validated Vite environment contract, browser-safe Supabase client, versioned remote schema, explicit grants, Auth-profile trigger, `.env.example`, and setup screen | Create production project and expand development seed data |
+| FORNO-102 | In progress | Hash-based application routes, feature folders, protected application boundary, lazy-loaded operations module | Extract each prototype screen into its own feature and repository |
+| FORNO-103 | In progress | Login, local-device logout, session restoration, PKCE password recovery, profile-role guard, and Admin AAL2 gate | Configure production SMTP and build TOTP enrollment/challenge plus administration UI |
+| FORNO-104 | In progress | Versioned RLS policies and explicit Data API grants are deployed to development | Add automated role-policy and database-function tests |
+| FORNO-201 | In progress | Tested mass, volume, count, alias, package, precision, and dimension validation kernel | Persist unit definitions and build Admin conversion UI |
+| FORNO-605 | In progress | Vitest/jsdom harness with twelve domain, auth-error, and protected-route tests | Add database integration and browser end-to-end suites |
+
 ## Conventions
 
 - **Priority:** P0 blocks production, P1 is required for the first operational release, P2 improves the workflow after launch.
