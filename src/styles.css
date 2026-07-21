@@ -54,7 +54,8 @@ button {
     color: #e9ece4;
     background: #263128;
     display: flex;
-    flex-direction: column
+    flex-direction: column;
+    transition: width .22s ease, padding .22s ease, transform .25s
 }
 
 .side-head {
@@ -62,6 +63,29 @@ button {
     align-items: center;
     justify-content: space-between;
     padding: 0 8px
+}
+
+.sidebar-collapse {
+    position: absolute;
+    z-index: 2;
+    top: 36px;
+    right: -13px;
+    width: 27px;
+    height: 27px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(101, 31, 26, .2);
+    border-radius: 50%;
+    background: #f7eee5;
+    color: #76271f;
+    box-shadow: 0 4px 13px rgba(53, 20, 17, .16);
+    transition: transform .18s, background .18s
+}
+
+.sidebar-collapse:hover {
+    transform: scale(1.06);
+    background: #fff8f0
 }
 
 .logo-wrap {
@@ -154,6 +178,22 @@ button {
     margin-top: 25px
 }
 
+.sidebar > nav {
+    min-height: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column
+}
+
+.admin-nav {
+    margin-top: auto;
+    padding-top: 32px
+}
+
+.admin-nav .nav-label.bottom {
+    margin-top: 0
+}
+
 .nav-item {
     width: 100%;
     height: 42px;
@@ -179,6 +219,28 @@ button {
     color: #fff;
     background: #3a483b;
     box-shadow: inset 3px 0 #db7653
+}
+
+.nav-item.nested {
+    position: relative;
+    width: calc(100% - 18px);
+    height: 38px;
+    margin: 0 0 4px 18px;
+    padding-left: 26px;
+    border-radius: 7px;
+    font-size: 12px
+}
+
+.nav-item.nested::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 9px;
+    width: 9px;
+    height: 23px;
+    border-bottom: 1px solid rgba(240, 223, 205, .28);
+    border-left: 1px solid rgba(240, 223, 205, .28);
+    border-radius: 0 0 0 7px
 }
 
 .nav-item span {
@@ -279,7 +341,8 @@ button {
 .main {
     margin-left: 252px;
     min-width: 0;
-    flex: 1
+    flex: 1;
+    transition: margin-left .22s ease
 }
 
 .topbar {
@@ -1652,8 +1715,8 @@ button {
 }
 
 .logo-mark {
-    width: 39px;
-    height: 39px;
+    width: 48px;
+    height: 48px;
     color: #f6e9dc;
     background: rgba(255, 255, 255, .055);
     border-color: rgba(255, 244, 232, .24)
@@ -1666,13 +1729,10 @@ button {
 }
 
 .forno-fox {
-    display: block
+    display: block;
+    object-fit: contain
 }
 
-.restaurant-pill {
-    border-color: rgba(255, 255, 255, .11);
-    background: rgba(255, 255, 255, .045)
-}
 
 .rest-avatar {
     background: #f0dfcd;
@@ -1888,6 +1948,7 @@ button {
 }
 
 .nav-label {
+    margin-top: 2rem;
     font-size: 10px
 }
 
@@ -2113,6 +2174,97 @@ button {
     font-size: 12px
 }
 
+@media (min-width: 761px) {
+    .sidebar.collapsed {
+        width: 82px;
+        padding-inline: 12px
+    }
+
+    .main.sidebar-collapsed {
+        margin-left: 82px
+    }
+
+    .sidebar.collapsed .side-head {
+        justify-content: center;
+        padding-inline: 0
+    }
+
+    .sidebar.collapsed .logo-wrap > div:last-child,
+    .sidebar.collapsed .restaurant-pill > div:nth-child(2),
+    .sidebar.collapsed .restaurant-pill > svg,
+    .sidebar.collapsed .nav-item > span,
+    .sidebar.collapsed .side-card > div:nth-child(2),
+    .sidebar.collapsed .side-card > svg,
+    .sidebar.collapsed .user-card > div:nth-child(2),
+    .sidebar.collapsed .signout-button {
+        display: none
+    }
+
+    .sidebar.collapsed .restaurant-pill {
+        justify-content: center;
+        padding: 8px;
+        margin-block: 27px 19px
+    }
+
+    .sidebar.collapsed .nav-label {
+        height: 1px;
+        padding: 0;
+        margin: 12px 10px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, .12);
+        color: transparent
+    }
+
+    .sidebar.collapsed .nav-label.bottom {
+        margin-top: 20px
+    }
+
+    .sidebar.collapsed .nav-item {
+        position: relative;
+        justify-content: center;
+        width: 100%;
+        padding: 0;
+        gap: 0
+    }
+
+    .sidebar.collapsed .nav-item.nested {
+        height: 38px;
+        margin: 0 0 4px;
+        color: #c9a89e
+    }
+
+    .sidebar.collapsed .nav-item.nested::before {
+        top: -4px;
+        left: 7px;
+        width: 7px;
+        height: 20px
+    }
+
+    .sidebar.collapsed .nav-item b {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        min-width: 7px;
+        width: 7px;
+        height: 7px;
+        padding: 0;
+        overflow: hidden;
+        color: transparent
+    }
+
+    .sidebar.collapsed .side-card {
+        justify-content: center;
+        padding-inline: 0
+    }
+
+    .sidebar.collapsed .user-card {
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+        padding-inline: 0
+    }
+}
+
 @media (max-width: 1100px) {
     .stats-grid {
         grid-template-columns: 1fr 1fr
@@ -2146,6 +2298,10 @@ button {
 }
 
 @media (max-width: 760px) {
+    .sidebar-collapse {
+        display: none
+    }
+
     .sidebar {
         transform: translateX(-100%);
         transition: .25s
@@ -2168,6 +2324,10 @@ button {
     }
 
     .main {
+        margin-left: 0
+    }
+
+    .main.sidebar-collapsed {
         margin-left: 0
     }
 
@@ -2434,6 +2594,10 @@ button {
     margin-bottom: 20px
 }
 
+.auth-form-card .label {
+    margin-bottom: 2rem;
+}
+
 .setup-card ol {
     padding-left: 21px;
     color: #544d47;
@@ -2508,9 +2672,23 @@ button {
     box-shadow: 0 0 0 70px rgba(255, 255, 255, .025), 0 0 0 140px rgba(255, 255, 255, .018)
 }
 
+.auth-nico {
+    position: absolute;
+    z-index: 1;
+    top: 19rem;
+    right: 25rem;
+    width: clamp(290px, 29vw, 470px);
+    height: auto;
+    object-fit: contain;
+    opacity: .86;
+    filter: drop-shadow(0 14px 24px rgba(31, 8, 7, .11));
+    pointer-events: none;
+    user-select: none
+}
+
 .auth-brand-copy {
     position: relative;
-    z-index: 1
+    z-index: 2
 }
 
 .auth-brand-copy > span {
@@ -2670,6 +2848,15 @@ button {
     .auth-brand-panel {
         min-height: 300px;
         padding: 35px
+    }
+
+    .auth-nico {
+        top: 12px;
+        left: auto;
+        right: 20px;
+        width: 175px;
+        transform: none;
+        opacity: .52
     }
 
     .auth-brand-copy h1 {

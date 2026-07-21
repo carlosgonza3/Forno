@@ -186,8 +186,6 @@ export default function CatalogPage() {
             <div><span className="eyebrow">CATÁLOGO OPERATIVO</span><h2>Ingredientes y proveedores</h2><p>Datos reales
                 importados del inventario maestro de Forno.</p></div>
             <div className="catalog-heading-actions">
-                {isAdmin ? <div className="admin-badge"><ShieldCheck size={17}/><span><strong>Modo administrador</strong>Los cambios se validan con RLS</span>
-                </div> : <div className="readonly-badge">Vista de solo lectura</div>}
                 {tab === "items" && <button className="global-view-button catalog-refresh-button"
                                             onClick={showGlobalInventory} disabled={loading}
                                             title="Actualizar datos y restablecer la tabla"><RefreshCw size={16}
