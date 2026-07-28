@@ -2,14 +2,14 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 
 export default function ProtectedRoute() {
-  const { configured, loading, session, profile, needsAdminMfa } = useAuth();
+  const { configured, loading, session, profile, needsMfa } = useAuth();
   const location = useLocation();
 
   if (!configured) return <Navigate to="/setup" replace />;
   if (loading) return <AppLoading />;
   if (!session) return <Navigate to="/login" state={{ from: location }} replace />;
   if (!profile) return <IdentityError />;
-  if (needsAdminMfa) return <Navigate to="/mfa" replace />;
+  if (needsMfa) return <Navigate to="/mfa" replace />;
 
   return <Outlet />;
 }

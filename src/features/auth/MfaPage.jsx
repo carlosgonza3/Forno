@@ -16,7 +16,7 @@ export default function MfaPage() {
   useEffect(() => {
     let active = true;
     async function prepareFactor() {
-      if (!supabase || !user || profile?.role !== "admin" || assuranceLevel === "aal2") {
+      if (!supabase || !user || !profile || assuranceLevel === "aal2") {
         setLoading(false);
         return;
       }
@@ -36,7 +36,10 @@ export default function MfaPage() {
 
       const stale = listed.data.all.filter((item) => item.factor_type === "totp" && item.status === "unverified");
       await Promise.all(stale.map((item) => supabase.auth.mfa.unenroll({ factorId: item.id })));
-      const enrolled = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Forno Admin" });
+      const enrolled = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: profile.role === "admin" ? "Forno Admin" : "Forno",
+      });
       if (!active) return;
       if (enrolled.error) {
         setError("No pudimos preparar el autenticador. Cierra sesión e intenta nuevamente.");
@@ -48,10 +51,10 @@ export default function MfaPage() {
     }
     prepareFactor();
     return () => { active = false; };
-  }, [assuranceLevel, profile?.role, user]);
+  }, [assuranceLevel, profile, user]);
 
   if (!user) return <Navigate to="/login" replace />;
-  if (profile?.role !== "admin" || assuranceLevel === "aal2") return <Navigate to="/app" replace />;
+  if (!profile || assuranceLevel === "aal2") return <Navigate to="/app" replace />;
 
   async function verify(event) {
     event.preventDefault();
@@ -71,7 +74,7 @@ export default function MfaPage() {
     <section className="mfa-card">
       <div className="mfa-icon"><ShieldCheck size={28} /></div>
       <span className="state-kicker">SEGUNDO FACTOR REQUERIDO</span>
-      <h1>{enrollment ? "Protege tu cuenta Admin" : "Confirma que eres tú"}</h1>
+      <h1>{enrollment ? "Protege tu cuenta" : "Confirma que eres tú"}</h1>
       <p>{enrollment ? "Escanea este código con 1Password, Google Authenticator, Microsoft Authenticator o tu gestor TOTP preferido." : "Ingresa el código de seis dígitos de tu aplicación autenticadora."}</p>
 
       {loading ? <div className="mfa-loading"><div className="state-spinner" />Preparando acceso seguro…</div> : <>

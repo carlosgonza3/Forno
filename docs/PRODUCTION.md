@@ -1,6 +1,6 @@
 # Forno inventory production runbook
 
-The first client release contains the authenticated inventory catalog and appearance settings. Dashboard, preparation, recipes, shopping, receipts, uploads, notifications, and team administration remain available for local development but are excluded from production navigation.
+The current client release contains the authenticated Dashboard, Inventory, Purchases, and appearance/account settings. Preparation, recipes, receipts, uploads, notifications, and team administration remain available for local development but are excluded from production navigation.
 
 ## Environment model
 
@@ -56,8 +56,8 @@ In the production project:
 
 5. Verify all existing SKUs use `FOR-######`, and create/edit/archive an ingredient with an Admin test user.
 6. Verify a Local user can read the catalog but cannot access Admin mutations.
-7. Push or merge the verified commit to `main`. The deployment workflow tests, builds the inventory-only release, and publishes it to GitHub Pages.
-8. Test login, refresh, CSV export, theme selection, password-reset delivery, and logout at the production URL.
+7. Push or merge the verified commit to `main`. The deployment workflow tests, builds the operations release, and publishes it to GitHub Pages.
+8. Test login, Dashboard activity, Inventory existence entry, Purchases review/export/save/receipt, theme selection, password-reset delivery, and logout at the production URL.
 
 Database migrations are intentionally not executed by the Pages workflow. This prevents a frontend deployment token from receiving database-administration privileges and keeps schema changes as an explicit reviewed operation.
 
@@ -70,7 +70,7 @@ Database migrations are intentionally not executed by the Pages workflow. This p
 5. For changes with migrations, apply backward-compatible production migrations first, verify them, and then merge the frontend.
 6. Merge only client-ready functionality. Every merge to `main` deploys automatically.
 
-Unfinished modules stay hidden because production sets `VITE_RELEASE_SCOPE=inventory`. When another module is ready, expand the release scope deliberately rather than exposing prototype screens.
+Unfinished modules stay hidden because production sets `VITE_RELEASE_SCOPE=operations`. When another module is ready, expand the release scope deliberately rather than exposing prototype screens.
 
 ## Rollback
 

@@ -21,9 +21,37 @@ export const UNIT_OPTIONS = [
 ];
 
 const UNIT_LABELS = Object.fromEntries(UNIT_OPTIONS);
+const PLURAL_UNIT_LABELS = {
+  unidad: "Unidades",
+  g: "Gramos (g)",
+  kg: "Kilogramos (kg)",
+  lb: "Libras (lb)",
+  oz: "Onzas (oz)",
+  ml: "Mililitros (ml)",
+  l: "Litros (L)",
+  botella: "Botellas",
+  lata: "Latas",
+  bolsa: "Bolsas",
+  bote: "Botes",
+  caja: "Cajas",
+  carton: "Cartones",
+  paquete: "Paquetes",
+  manojo: "Manojos",
+  cabeza: "Cabezas",
+  galon: "Galones",
+  barril: "Barriles",
+  orden: "Órdenes",
+};
 
 export function unitLabel(unit) {
   return UNIT_LABELS[unit] ?? unit ?? "—";
+}
+
+export function quantityUnitLabel(unit, quantity) {
+  if (Number(quantity) === 1) return unitLabel(unit);
+  if (PLURAL_UNIT_LABELS[unit]) return PLURAL_UNIT_LABELS[unit];
+  const label = unitLabel(unit);
+  return label === "—" || label.toLocaleLowerCase("es").endsWith("s") ? label : `${label}s`;
 }
 
 export function stockStatus(item) {
@@ -34,6 +62,26 @@ export function stockStatus(item) {
   if (quantity <= reorder) return { key: "critical", label: "Crítico" };
   if (par > 0 && quantity / par < 0.7) return { key: "low", label: "Bajo" };
   return { key: "healthy", label: "Óptimo" };
+}
+
+export function inventoryDashboardSummary(items = [], suppliers = []) {
+  const activeItems = items.filter((item) => item.active);
+  const counts = activeItems.reduce((summary, item) => {
+    const status = stockStatus(item).key;
+    summary[status] += 1;
+    if (Number(item.quantity) > 0) summary.withExistence += 1;
+    return summary;
+  }, { critical: 0, low: 0, healthy: 0, neutral: 0, withExistence: 0 });
+
+  return {
+    activeItems,
+    activeProducts: activeItems.length,
+    criticalProducts: counts.critical,
+    restockProducts: counts.critical + counts.low,
+    productsWithExistence: counts.withExistence,
+    productsWithoutExistence: activeItems.length - counts.withExistence,
+    activeSuppliers: suppliers.filter((supplier) => supplier.active).length,
+  };
 }
 
 export function matchesCatalogItem(item, query, departmentId, includeInactive, supplierId = "") {

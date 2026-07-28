@@ -42,6 +42,67 @@ export async function loadCatalog() {
   };
 }
 
+export async function addInventoryExistences(entries) {
+  const client = requireClient();
+  const additions = entries.map((entry) => ({
+    item_id: entry.id,
+    quantity: Number(entry.increment),
+  }));
+  const result = await client.rpc("add_inventory_existences", { additions });
+  throwIfError(result.error);
+  return result.data ?? [];
+}
+
+export async function loadInventoryAdditionTransactions({ page = 0, pageSize = 5 } = {}) {
+  const client = requireClient();
+  const from = page * pageSize;
+  const transactionsResult = await client
+    .from("inventory_addition_transactions")
+    .select("id, created_by, item_count, created_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, from + pageSize - 1);
+  throwIfError(transactionsResult.error);
+
+  const transactions = transactionsResult.data ?? [];
+  if (!transactions.length) {
+    return { transactions: [], total: transactionsResult.count ?? 0, page, pageSize };
+  }
+
+  const transactionIds = transactions.map((transaction) => transaction.id);
+  const movementsResult = await client
+    .from("stock_movements")
+    .select("id, source_id, item_id, quantity_delta, quantity_before, quantity_after, created_at, item:inventory_items(name, base_unit, sku)")
+    .in("source_id", transactionIds)
+    .order("created_at", { ascending: true });
+  throwIfError(movementsResult.error);
+
+  const actorIds = [...new Set(transactions.map((entry) => entry.created_by).filter(Boolean))];
+  let profiles = [];
+  if (actorIds.length) {
+    const profilesResult = await client.from("profiles").select("id, display_name").in("id", actorIds);
+    throwIfError(profilesResult.error);
+    profiles = profilesResult.data ?? [];
+  }
+  const namesById = Object.fromEntries(profiles.map((profile) => [profile.id, profile.display_name]));
+  const movementsByTransaction = (movementsResult.data ?? []).reduce((groups, movement) => {
+    const entries = groups.get(movement.source_id) ?? [];
+    entries.push(movement);
+    groups.set(movement.source_id, entries);
+    return groups;
+  }, new Map());
+
+  return {
+    transactions: transactions.map((transaction) => ({
+      ...transaction,
+      actor_name: namesById[transaction.created_by] ?? "Usuario",
+      items: movementsByTransaction.get(transaction.id) ?? [],
+    })),
+    total: transactionsResult.count ?? transactions.length,
+    page,
+    pageSize,
+  };
+}
+
 export async function saveCatalogItem(values) {
   const client = requireClient();
   const payload = {

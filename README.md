@@ -22,7 +22,7 @@ npm run check
 
 ## Deploy to GitHub Pages
 
-The repository includes a production workflow that tests and deploys the authenticated inventory release whenever `main` is pushed. Production hides unfinished prototype modules and starts directly in Inventory.
+The repository includes a production workflow that tests and deploys the authenticated operations release whenever `main` is pushed. Production starts on Dashboard and exposes Dashboard, Inventory, Purchases, and appearance/account settings while keeping unfinished prototype modules hidden.
 
 1. Create a GitHub repository and add it as this project's `origin` remote.
 2. Push `main` to GitHub.
@@ -39,20 +39,20 @@ Use short-lived feature branches for ongoing development and merge only client-r
 
 - Supabase authentication, session restoration, password recovery, and logout
 - Admin MFA enforcement and role-aware catalog controls
+- Live dashboard reorder metrics, attention list, and grouped inventory activity
 - Real ingredient and supplier catalog backed by Supabase
+- Inventory existence entry with review, audit history, and pluralized units
+- Shared purchase recommendations, filters, grouping, saved pending lists, CSV/PDF export, and inventory receipt
 - Search, filters, grouping, sorting, CSV export, and light/dark themes
 
 ## Prototype modules retained for development
 
-- Operational dashboard with stock, food-cost, waste, prep, and activity metrics
 - Daily production list for prepared/current food
 - Recipe cards with ingredients, unit cost, margin, and achievable servings
-- Automated grocery list grouped by supermarket department
 - AI receipt upload/review experience
-- Responsive navigation for desktop and mobile
 - Supabase schema with Admin and Local roles and row-level security
 
-The unfinished modules still use realistic in-memory sample data and remain available in local development. The production release scope prevents restaurant users from navigating to them until their Supabase-backed implementations are ready.
+The unfinished modules still use realistic in-memory sample data and remain available in local development. Production uses `VITE_RELEASE_SCOPE=operations` so restaurant users can access only the completed operational pages.
 
 ## Security baseline
 

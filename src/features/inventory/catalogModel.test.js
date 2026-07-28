@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { groupCatalogItems, matchesCatalogItem, sortCatalogItems, stockStatus, unitLabel } from "./catalogModel";
+import {
+  groupCatalogItems,
+  inventoryDashboardSummary,
+  matchesCatalogItem,
+  quantityUnitLabel,
+  sortCatalogItems,
+  stockStatus,
+  unitLabel,
+} from "./catalogModel";
 
 describe("catalog model", () => {
   it("classifies stock against reorder and par levels", () => {
@@ -33,5 +41,29 @@ describe("catalog model", () => {
   it("provides Spanish labels for canonical units", () => {
     expect(unitLabel("lb")).toBe("Libra (lb)");
     expect(unitLabel("personalizada")).toBe("personalizada");
+    expect(quantityUnitLabel("unidad", 1)).toBe("Unidad");
+    expect(quantityUnitLabel("unidad", 0)).toBe("Unidades");
+    expect(quantityUnitLabel("lb", 2)).toBe("Libras (lb)");
+    expect(quantityUnitLabel("carton", 1.5)).toBe("Cartones");
+    expect(quantityUnitLabel("personalizada", 3)).toBe("personalizadas");
+  });
+
+  it("summarizes only active inventory for dashboard metrics", () => {
+    const summary = inventoryDashboardSummary([
+      { active: true, quantity: 1, reorder_point: 2, par_level: 10 },
+      { active: true, quantity: 5, reorder_point: 2, par_level: 10 },
+      { active: true, quantity: 8, reorder_point: 2, par_level: 10 },
+      { active: true, quantity: 0, reorder_point: 0, par_level: 0 },
+      { active: false, quantity: 0, reorder_point: 2, par_level: 10 },
+    ], [{ active: true }, { active: false }]);
+
+    expect(summary).toMatchObject({
+      activeProducts: 4,
+      criticalProducts: 1,
+      restockProducts: 2,
+      productsWithExistence: 3,
+      productsWithoutExistence: 1,
+      activeSuppliers: 1,
+    });
   });
 });

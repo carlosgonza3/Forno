@@ -116,7 +116,7 @@ export function AuthProvider({ children }) {
       profile,
       role: profile?.role ?? null,
       assuranceLevel,
-      needsAdminMfa: profile?.role === "admin" && assuranceLevel !== "aal2",
+      needsMfa: Boolean(profile) && assuranceLevel !== "aal2",
       loading,
       error,
       signIn,

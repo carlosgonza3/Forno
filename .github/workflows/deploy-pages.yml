@@ -1,4 +1,4 @@
-name: Deploy inventory production
+name: Deploy operations production
 
 on:
   push:
@@ -43,12 +43,12 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build inventory release
+      - name: Build operations release
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_RELEASE_SCOPE: inventory
+          VITE_RELEASE_SCOPE: operations
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

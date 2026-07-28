@@ -1,15 +1,19 @@
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {
+    AlertTriangle,
     ArchiveRestore,
     ArrowUpDown,
     Boxes,
     Building2,
+    Check,
+    CheckCircle2,
     ChevronDown,
     ChevronRight,
     CircleOff,
     Download,
     FilterX,
     Layers3,
+    Minus,
     Pencil,
     Plus,
     RefreshCw,
@@ -20,6 +24,7 @@ import {
 } from "lucide-react";
 import {useAuth} from "../../auth/AuthProvider";
 import {
+    addInventoryExistences,
     loadCatalog,
     saveCatalogItem,
     saveSupplier,
@@ -29,10 +34,10 @@ import {
 import {
     groupCatalogItems,
     matchesCatalogItem,
+    quantityUnitLabel,
     sortCatalogItems,
     stockStatus,
     UNIT_OPTIONS,
-    unitLabel
 } from "../catalogModel";
 import {
     availableInventoryCsvColumns,
@@ -58,7 +63,12 @@ const emptySupplier = {id: null, name: "", email: "", phone: "", active: true};
 
 function errorMessage(error) {
     if (error?.code === "23505") return "Ese nombre o SKU ya existe en el catálogo.";
-    if (error?.code === "42501") return "Tu rol no tiene permiso para modificar el catálogo.";
+    if (error?.code === "42501") return "Tu sesión no tiene permiso para registrar esta actualización.";
+    if (error?.code === "PGRST202" || error?.code === "42883") {
+        return "La actualización de inventario aún no está habilitada en la base de datos.";
+    }
+    if (error?.code === "22023") return "Una de las cantidades o ingredientes no es válida.";
+    if (error?.code === "P0002") return "Uno de los ingredientes ya no está activo o disponible.";
     return "No pudimos completar la operación. Intenta nuevamente.";
 }
 
@@ -81,6 +91,7 @@ export default function CatalogPage() {
     const [itemDraft, setItemDraft] = useState(null);
     const [supplierDraft, setSupplierDraft] = useState(null);
     const [exportOpen, setExportOpen] = useState(false);
+    const [existenceOpen, setExistenceOpen] = useState(false);
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -187,13 +198,16 @@ export default function CatalogPage() {
 
     return <>
         <section className="catalog-heading">
-            <div><span className="eyebrow">CATÁLOGO OPERATIVO</span><h2>Ingredientes y proveedores</h2><p>Datos reales
-                importados del inventario maestro de Forno.</p></div>
+            <div><h2>Ingredientes y proveedores</h2></div>
             <div className="catalog-heading-actions">
                 {tab === "items" && <button className="global-view-button catalog-refresh-button"
                                             onClick={showGlobalInventory} disabled={loading}
                                             title="Actualizar datos y restablecer la tabla"><RefreshCw size={16}
                                                 className={loading ? "spinning" : ""}/><span><strong>Actualizar</strong><small>Actualizar y restablecer</small></span>
+                </button>}
+                {tab === "items" && <button className="primary-btn existence-entry-button"
+                                            onClick={() => setExistenceOpen(true)} disabled={loading}>
+                    <Plus size={17}/><span>Agregar existencias</span>
                 </button>}
             </div>
         </section>
@@ -340,7 +354,192 @@ export default function CatalogPage() {
             <InventoryExportDialog groups={itemGroups} groupBy={groupBy} itemCount={items.length}
                                    onClose={() => setExportOpen(false)}/>
         )}
+        {existenceOpen && (
+            <ExistenceEntryDialog catalog={catalog} onClose={() => setExistenceOpen(false)}
+                                  onSaved={async () => {
+                                      setExistenceOpen(false);
+                                      await refresh();
+                                  }}/>
+        )}
     </>;
+}
+
+function ExistenceEntryDialog({catalog, onClose, onSaved}) {
+    const [stage, setStage] = useState("entry");
+    const [query, setQuery] = useState("");
+    const [departmentId, setDepartmentId] = useState("");
+    const [groupBy, setGroupBy] = useState("department");
+    const [increments, setIncrements] = useState({});
+    const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+    const [discardOpen, setDiscardOpen] = useState(false);
+
+    const visibleItems = useMemo(() => catalog.items
+        .filter((item) => item.active)
+        .filter((item) => matchesCatalogItem(item, query, departmentId, false)), [catalog.items, departmentId, query]);
+    const groups = useMemo(() => groupCatalogItems(sortCatalogItems(visibleItems, "name"), groupBy),
+        [groupBy, visibleItems]);
+    const editedItems = useMemo(() => catalog.items
+        .filter((item) => Number(increments[item.id]) > 0)
+        .map((item) => ({...item, increment: Number(increments[item.id])})), [catalog.items, increments]);
+    const addedTotal = editedItems.reduce((total, item) => total + item.increment, 0);
+
+    function setIncrement(id, value) {
+        if (value === "" || /^\d*(\.\d{0,3})?$/.test(value)) {
+            setIncrements((current) => ({...current, [id]: value}));
+        }
+    }
+
+    function toggleGroup(key) {
+        setCollapsedGroups((current) => {
+            const next = new Set(current);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    }
+
+    async function confirm() {
+        setSaving(true);
+        setError("");
+        try {
+            await addInventoryExistences(editedItems);
+            await onSaved();
+        } catch (nextError) {
+            setError(errorMessage(nextError));
+            setSaving(false);
+        }
+    }
+
+    function requestClose() {
+
+        if (editedItems.length) setDiscardOpen(true);
+        else onClose();
+    }
+
+
+    return <>
+    <div className="modal-backdrop existence-backdrop" onMouseDown={requestClose}>
+        <section className="modal existence-dialog" onMouseDown={(event) => event.stopPropagation()}
+                 aria-label="Agregar existencias">
+            <div className="existence-dialog-head">
+                <h2>{stage === "entry" ? "Agregar existencias" : "Revisar actualizaciones"}</h2>
+                <div className="existence-steps" aria-label="Progreso">
+                    <span className="active"><i>{stage === "review" ? <Check size={12}/> : "1"}</i>Ingresar</span>
+                    <b/>
+                    <span className={stage === "review" ? "active" : ""}><i>2</i>Revisar</span>
+                </div>
+            </div>
+
+            {stage === "entry" ? <>
+                <div className="existence-tools">
+                    <div className="search-box"><Search size={18}/><input value={query}
+                        onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ingrediente…"/></div>
+                    <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
+                        options={[{value: "", label: "Todos"}, ...catalog.departments.map((department) => ({
+                            value: department.id, label: department.name
+                        }))]}/>
+                    <ViewSelect icon={Layers3} label="Agrupación" value={groupBy} onChange={(value) => {
+                        setGroupBy(value);
+                        setCollapsedGroups(new Set());
+                    }} options={[{value: "department", label: "Por departamento"},
+                        {value: "supplier", label: "Por proveedor"}, {value: "none", label: "Sin agrupar"}]}/>
+                </div>
+                <div className="existence-table-stage">
+                    {!visibleItems.length ? <div className="catalog-empty"><Boxes size={28}/><h3>No hay ingredientes</h3>
+                        <p>Ajusta la búsqueda o el departamento.</p></div> : groups.map((group) => {
+                        const grouped = groupBy !== "none";
+                        const collapsed = collapsedGroups.has(group.key);
+                        return <section className={`existence-group ${collapsed ? "is-collapsed" : ""}`} key={group.key}>
+                            {grouped && <button className="inventory-group-head" onClick={() => toggleGroup(group.key)}
+                                aria-expanded={!collapsed}>
+                                <span className="group-chevron">{collapsed ? <ChevronRight size={18}/> : <ChevronDown size={18}/>}</span>
+                                <span className="inventory-group-identity"><small>Grupo</small><strong>{group.label}</strong></span>
+                                <span className="inventory-group-summary">{group.items.length} ingredientes</span>
+                            </button>}
+                            {!collapsed && <ExistenceTable items={group.items} increments={increments}
+                                onIncrement={setIncrement}/>}
+                        </section>;
+                    })}
+                </div>
+            </> : <div className="existence-review">
+                <div className="table-wrap">
+                    <table><thead><tr><th>Ingrediente</th><th>Existencia anterior</th>
+                    <th>Se agrega</th><th>Nueva existencia</th></tr></thead>
+                    <tbody>{editedItems.map((item) => <tr key={item.id}><td><strong>{item.name}</strong>
+                        <small className="review-sku">{item.sku || "Sin SKU"}</small></td>
+                        <td>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</td>
+                        <td><span className="addition-pill">+{item.increment.toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.increment)}</span></td>
+                        <td><strong>{(Number(item.quantity) + item.increment).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, Number(item.quantity) + item.increment)}</strong></td>
+                    </tr>)}</tbody></table></div>
+            </div>}
+
+            {error && <div className="catalog-message error">{error}</div>}
+            <footer className="existence-dialog-footer">
+                <span>{editedItems.length ? <><strong>{editedItems.length}</strong> editados</> : "Aún no hay cambios"}</span>
+                <div>
+                    <button type="button" className="secondary-btn" onClick={stage === "review" ? () => setStage("entry") : requestClose}>
+                        {stage === "review" ? "Volver" : "Cancelar"}</button>
+                    <button type="button" className="primary-btn" disabled={!editedItems.length || saving}
+                        onClick={stage === "entry" ? () => setStage("review") : confirm}>
+                        {saving ? "Guardando…" : stage === "entry" ? <>Continuar <ChevronRight size={16}/></> : <><Check size={16}/>Confirmar y guardar</>}
+                    </button>
+                </div>
+            </footer>
+        </section>
+    </div>
+    {discardOpen && <div className="modal-backdrop discard-warning-backdrop"
+                         onMouseDown={() => setDiscardOpen(false)}>
+        <section className="modal discard-warning-dialog" role="alertdialog" aria-modal="true"
+                 aria-labelledby="discard-warning-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="discard-warning-icon"><AlertTriangle size={23}/></div>
+            <span className="eyebrow">CAMBIOS SIN GUARDAR</span>
+            <h2 id="discard-warning-title">¿Salir sin guardar?</h2>
+            <p>Agregaste existencias a {editedItems.length} {editedItems.length === 1 ? "ingrediente" : "ingredientes"}.
+                Si sales ahora, estas cantidades no se guardarán.</p>
+            <div className="discard-warning-actions">
+                <button type="button" className="secondary-btn" onClick={() => setDiscardOpen(false)}>
+                    Seguir editando</button>
+                <button type="button" className="danger-btn" onClick={onClose}>Descartar cambios</button>
+            </div>
+        </section>
+    </div>}
+    </>;
+}
+
+function ExistenceTable({items, increments, onIncrement}) {
+    function addOne(item) {
+        const current = Number(increments[item.id]) || 0;
+        onIncrement(item.id, String(Number((current + 1).toFixed(3))));
+    }
+
+    function removeOne(item) {
+        const current = Number(increments[item.id]) || 0;
+        const next = Math.max(0, current - 1);
+        onIncrement(item.id, next === 0 ? "" : String(Number(next.toFixed(3))));
+    }
+
+    return <div className="table-wrap existence-table"><table><thead><tr><th>Ingrediente</th><th>Existencia</th>
+        <th>Unidad</th><th>Cantidad a agregar</th></tr></thead><tbody>{items.map((item) => {
+        const value = increments[item.id] ?? "";
+        const hasAddition = Number(value) > 0;
+        return <tr key={item.id} className={Number(value) > 0 ? "edited-row" : ""}>
+            <td><div className="product-cell"><div className="food-icon"><Boxes size={17}/></div><div>
+                <strong>{item.name}</strong><span>{item.sku || "Sin SKU"}</span></div></div></td>
+            <td><strong>{Number(item.quantity).toLocaleString("es-SV")}</strong></td>
+            <td>{quantityUnitLabel(item.base_unit, item.quantity)}</td>
+            <td><div className="increment-field"><span className="increment-controls">
+                <button type="button" className="increment-prefix" onClick={() => addOne(item)}
+                    aria-label={`Sumar una unidad a ${item.name}`} title="Sumar 1"><Plus size={15}/></button>
+                {hasAddition && <button type="button" className="increment-prefix"
+                    onClick={() => removeOne(item)} aria-label={`Restar una unidad a ${item.name}`}
+                    title="Restar 1"><Minus size={15}/></button>}
+                </span><input type="text" inputMode="decimal"
+                aria-label={`Agregar a ${item.name}`} placeholder="0" value={value}
+                onChange={(event) => onIncrement(item.id, event.target.value)}/><span className="increment-unit">{quantityUnitLabel(item.base_unit, Number(value) || 0)}</span></div></td>
+        </tr>;
+    })}</tbody></table></div>;
 }
 
 function InventoryExportDialog({groups, groupBy, itemCount, onClose}) {
@@ -463,9 +662,9 @@ function ItemsTable({items, isAdmin, onEdit, onToggle, grouped = false}) {
                         </div>
                     </td>
                     <td><span className="category-tag">{item.department?.name ?? "Sin asignar"}</span></td>
-                    <td><strong>{Number(item.quantity).toLocaleString("es-SV")}</strong> {unitLabel(item.base_unit)}
+                    <td><strong>{Number(item.quantity).toLocaleString("es-SV")}</strong> {quantityUnitLabel(item.base_unit, item.quantity)}
                     </td>
-                    <td>{Number(item.par_level).toLocaleString("es-SV")} {unitLabel(item.base_unit)}</td>
+                    <td>{Number(item.par_level).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.par_level)}</td>
                     <td><span className={`status ${status.key}`}><span/>{status.label}</span></td>
                     <td>{money.format(Number(item.unit_cost))}</td>
                     <td>{item.supplier?.name ?? "Sin asignar"}</td>

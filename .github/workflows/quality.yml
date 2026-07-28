@@ -27,9 +27,9 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build inventory release
+      - name: Build operations release
         run: npm run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_validation_key
-          VITE_RELEASE_SCOPE: inventory
+          VITE_RELEASE_SCOPE: operations

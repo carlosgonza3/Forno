@@ -13,15 +13,15 @@ import {
     CheckCircle2,
     ChefHat,
     ChevronDown,
+    ChevronLeft,
     ChevronRight,
-    ClipboardCheck,
     Clock3,
-    Gauge,
     LayoutDashboard,
     Leaf,
     ListFilter,
     LogOut,
     Menu,
+    Minimize2,
     Minus,
     Moon,
     Package,
@@ -34,7 +34,6 @@ import {
     ShoppingBasket,
     Sparkles,
     Sun,
-    TrendingDown,
     Upload,
     UserRound,
     Warehouse,
@@ -43,8 +42,16 @@ import {
 
 import {useAuth} from "./features/auth/AuthProvider";
 import CatalogPage from "./features/inventory/pages/CatalogPage";
+import ShoppingPage from "./features/purchasing/ShoppingPage";
+import {loadCatalog, loadInventoryAdditionTransactions} from "./features/inventory/api/catalogRepository";
+import {
+    inventoryDashboardSummary,
+    quantityUnitLabel,
+    sortCatalogItems,
+    stockStatus,
+} from "./features/inventory/catalogModel";
 import {applyTheme, readTheme} from "./app/theme";
-import {isInventoryRelease} from "./config/release";
+import {releaseScope, RELEASE_SCOPES} from "./config/release";
 
 import NicoWineWhite from "./assets/nico-whine-white.png";
 
@@ -72,8 +79,7 @@ const fullNavItems = [{
     {
         id: "shopping",
         label: "Compras",
-        icon: ShoppingBasket,
-        count: 12
+        icon: ShoppingBasket
     },
     {
         id: "receipts",
@@ -83,6 +89,7 @@ const fullNavItems = [{
 ];
 
 const inventoryReleaseNavItems = fullNavItems.filter(({id}) => id === "inventory");
+const operationsReleaseNavItems = fullNavItems.filter(({id}) => ["dashboard", "inventory", "shopping"].includes(id));
 
 const inventorySeed = [{
     id: 1,
@@ -258,8 +265,6 @@ const prepOptions = [{
     },
 ];
 
-const weeklyUsage = [62, 74, 68, 81, 77, 92, 86];
-
 const formatMoney = (value) => new Intl.NumberFormat("es-SV", {
     style: "currency",
     currency: "USD"
@@ -293,9 +298,9 @@ function Sidebar({
                      identity,
                      onSignOut,
                      signingOut,
-                     inventoryOnly
+                     navigationItems,
+                     showTeam
                  }) {
-    const navItems = inventoryOnly ? inventoryReleaseNavItems : fullNavItems;
     return (
         <aside className={`sidebar ${open ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
             <div className="side-head"><Logo/>
@@ -308,7 +313,7 @@ function Sidebar({
             </button>
             <nav>
                 <p className="nav-label">OPERACIONES</p>
-                {navItems.map(({id, label, icon: Icon, count, nested}) => (
+                {navigationItems.map(({id, label, icon: Icon, count, nested}) => (
                     <button key={id} title={collapsed ? label : undefined}
                             className={`nav-item ${nested ? "nested" : ""} ${page === id ? "active" : ""}`}
                             onClick={() => {
@@ -320,7 +325,7 @@ function Sidebar({
                 ))}
                 <div className="admin-nav">
                     <p className="nav-label bottom">ADMINISTRACIÓN</p>
-                    {!inventoryOnly && <button className="nav-item" title={collapsed ? "Equipo" : undefined}><UserRound
+                    {showTeam && <button className="nav-item" title={collapsed ? "Equipo" : undefined}><UserRound
                         size={19}/><span>Equipo</span></button>}
                     <button className={`nav-item ${page === "settings" ? "active" : ""}`}
                             title={collapsed ? "Configuración" : undefined} onClick={() => {
@@ -343,7 +348,7 @@ function Header({
                     page,
                     setOpen,
                     onUpload,
-                    inventoryOnly
+                    showUpload
                 }) {
     const titles = {
         dashboard: ["Buenos días, Carlos", ""],
@@ -358,7 +363,7 @@ function Header({
         <header className="topbar">
             <button className="icon-btn mobile-menu" onClick={() => setOpen(true)}><Menu size={20}/></button>
             <div className="page-title"><h1>{titles[page][0]}</h1><p>{titles[page][1]}</p></div>
-            {!inventoryOnly && <div className="top-actions">
+            {showUpload && <div className="top-actions">
                 <button className="icon-btn notification"><Bell size={19}/><i/></button>
                 <button className="primary-btn" onClick={onUpload}><Upload size={17}/><span>Subir factura</span>
                 </button>
@@ -386,48 +391,66 @@ function StatCard({
 function StockBadge({
                         item
                     }) {
-    const percent = (item.stock / item.par) * 100;
-    if (item.stock <= item.reorder) return <span className="status critical"><span/>Crítico</span>;
-    if (percent < 70) return <span className="status low"><span/>Bajo</span>;
+    const status = item.quantity == null
+        ? (item.stock <= item.reorder ? "critical" : item.par > 0 && item.stock / item.par < .7 ? "low" : "healthy")
+        : stockStatus(item).key;
+    if (status === "critical") return <span className="status critical"><span/>Crítico</span>;
+    if (status === "low") return <span className="status low"><span/>Bajo</span>;
     return <span className="status healthy"><span/>Óptimo</span>;
 }
 
 function Dashboard({
-                       inventory,
                        setPage
                    }) {
-    const low = inventory.filter((x) => x.stock <= x.reorder || x.stock / x.par < .7);
+    const [catalog, setCatalog] = useState({items: [], suppliers: []});
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const [catalogError, setCatalogError] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        setCatalogLoading(true);
+        setCatalogError(false);
+        loadCatalog()
+            .then((result) => {
+                if (active) setCatalog(result);
+            })
+            .catch(() => {
+                if (active) setCatalogError(true);
+            })
+            .finally(() => {
+                if (active) setCatalogLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const summary = useMemo(
+        () => inventoryDashboardSummary(catalog.items, catalog.suppliers),
+        [catalog.items, catalog.suppliers],
+    );
+    const attentionItems = useMemo(() => sortCatalogItems(
+        summary.activeItems.filter((item) => ["critical", "low"].includes(stockStatus(item).key)),
+        "attention",
+    ), [summary.activeItems]);
+    const metricValue = (value, suffix = "") => catalogLoading || catalogError ? "—" : `${value}${suffix}`;
+    const metricDetail = (value) => catalogLoading
+        ? "Cargando inventario…"
+        : catalogError ? "No se pudo actualizar" : value;
+
     return <>
         <section className="service-banner">
             <div className="banner-mark"><FornoFox size={64}/></div>
             <div>FORNO <br/> <span> SAN BENITO </span></div>
             <div className="banner-status"><i/><span>Próximo servicio</span><strong>6:00 PM</strong></div>
         </section>
-        <section className="stats-grid">
-            <StatCard label="Valor del inventario" value="$4,286.40" detail="4.8% esta semana" icon={Package}
-                      tone="clay" trend="up"/>
-            <StatCard label="Stock por reponer" value={`${low.length} productos`} detail="2 requieren atención hoy"
+        <section className="dashboard-stock-summary">
+            <StatCard label="Stock por reponer"
+                      value={metricValue(summary.restockProducts, summary.restockProducts === 1 ? " producto" : " productos")}
+                      detail={metricDetail(`${summary.criticalProducts} ${summary.criticalProducts === 1 ? "requiere" : "requieren"} atención hoy`)}
                       icon={AlertTriangle} tone="gold"/>
-            <StatCard label="Costo de alimentos" value="28.4%" detail="1.7% vs. semana pasada" icon={Gauge} tone="green"
-                      trend="down"/>
-            <StatCard label="Desperdicio semanal" value="$84.20" detail="12% vs. semana pasada" icon={TrendingDown}
-                      tone="blue" trend="down"/>
         </section>
         <section className="dashboard-grid">
-            <div className="panel chart-panel">
-                <div className="panel-head">
-                    <div><h2>Consumo semanal</h2><p>Valor de ingredientes utilizados</p></div>
-                    <button className="select-btn">Últimos 7 días <ChevronDown size={15}/></button>
-                </div>
-                <div className="chart-top"><strong>$540.80</strong><span><ArrowDownRight size={14}/> 6.2%</span></div>
-                <div className="bar-chart">
-                    {weeklyUsage.map((n, i) => <div className="bar-item" key={i}>
-                        <div className="bar-track">
-                            <div className="bar" style={{height: `${n}%`}}><span>${Math.round(n * .9)}</span></div>
-                        </div>
-                        <small>{["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][i]}</small></div>)}
-                </div>
-            </div>
             <div className="panel attention-panel">
                 <div className="panel-head">
                     <div><h2>Necesita atención</h2><p>Productos próximos a agotarse</p></div>
@@ -435,63 +458,134 @@ function Dashboard({
                         size={15}/></button>
                 </div>
                 <div className="attention-list">
-                    {low.slice(0, 4).map((item) => <div className="attention-row" key={item.id}>
-                        <div className="food-icon">{item.icon}</div>
+                    {catalogLoading ? <div className="dashboard-attention-state"><div className="state-spinner"/>Cargando inventario…</div>
+                        : catalogError ? <div className="dashboard-attention-state"><AlertTriangle size={18}/>No se pudo cargar el inventario.</div>
+                        : attentionItems.length ? attentionItems.slice(0, 4).map((item) => <div className="attention-row" key={item.id}>
+                        <div className="food-icon"><Leaf size={17}/></div>
                         <div className="attention-info">
-                            <strong>{item.name}</strong><span>{item.stock} {item.unit} disponibles</span>
+                            <strong>{item.name}</strong><span>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)} disponibles</span>
                             <div className="stock-line"><i
-                                style={{width: `${Math.min(100, item.stock / item.par * 100)}%`}}/></div>
+                                style={{width: `${Math.min(100, Number(item.par_level) > 0 ? Number(item.quantity) / Number(item.par_level) * 100 : 0)}%`}}/></div>
                         </div>
-                        <StockBadge item={item}/></div>)}
-                </div>
-                <button className="wide-soft-btn" onClick={() => setPage("shopping")}><ShoppingBasket
-                    size={17}/> Agregar todos a compras
-                </button>
-            </div>
-            <div className="panel prep-overview">
-                <div className="panel-head">
-                    <div><h2>Preparación para hoy</h2><p>Progreso antes del servicio</p></div>
-                    <button className="text-btn" onClick={() => setPage("prep")}>Abrir lista <ChevronRight size={15}/>
-                    </button>
-                </div>
-                <div className="prep-progress">
-                    <div className="progress-ring">
-                        <svg viewBox="0 0 44 44">
-                            <circle cx="22" cy="22" r="18"/>
-                            <circle className="ring-value" cx="22" cy="22" r="18"/>
-                        </svg>
-                        <strong>68%</strong></div>
-                    <div><strong>13 de 19 tareas</strong><span>6 preparaciones pendientes</span></div>
-                    <div className="time-chip"><Clock3 size={15}/> Servicio en 3h 20m</div>
-                </div>
-                <div className="mini-tasks">
-                    <div><CheckCircle2 size={18}/><span>Masa napolitana</span><b>60 un.</b></div>
-                    <div><CheckCircle2 size={18}/><span>Salsa pomodoro</span><b>6 cont.</b></div>
-                    <div className="pending"><Clock3 size={18}/><span>Mozzarella porcionada</span><b>3 / 5</b></div>
+                        <StockBadge item={item}/></div>)
+                            : <div className="dashboard-attention-state healthy"><CheckCircle2 size={18}/>Todo el inventario está en buen nivel.</div>}
                 </div>
             </div>
-            <div className="panel activity-panel">
-                <div className="panel-head">
-                    <div><h2>Actividad reciente</h2><p>Movimientos de hoy</p></div>
-                    <button className="more-button">•••</button>
-                </div>
-                <div className="timeline">
-                    <div><i className="green-dot"><Check size={13}/></i><p><strong>Factura procesada</strong><span>Mercado Central · 18 productos</span>
-                    </p>
-                        <time>9:42</time>
-                    </div>
-                    <div><i className="clay-dot"><ChefHat size={13}/></i><p><strong>Preparación
-                        registrada</strong><span>60 bolas de masa · Ana</span></p>
-                        <time>8:15</time>
-                    </div>
-                    <div><i className="blue-dot"><Package size={13}/></i><p><strong>Ajuste de inventario</strong><span>Aceite de oliva · +6 L</span>
-                    </p>
-                        <time>7:58</time>
-                    </div>
-                </div>
-            </div>
+            <RecentInventoryActivity/>
         </section>
     </>;
+}
+
+function RecentInventoryActivity() {
+    const [transactions, setTransactions] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(0);
+    const [expanded, setExpanded] = useState(false);
+    const [selected, setSelected] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const pageSize = expanded ? 10 : 5;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+
+    useEffect(() => {
+        let active = true;
+        setLoading(true);
+        loadInventoryAdditionTransactions({page, pageSize})
+            .then((result) => {
+                if (!active) return;
+                setTransactions(result.transactions);
+                setTotal(result.total);
+            })
+            .catch(() => {
+                if (!active) return;
+                setTransactions([]);
+                setTotal(0);
+            })
+            .finally(() => active && setLoading(false));
+        return () => {
+            active = false;
+        };
+    }, [page, pageSize]);
+
+    function expandCard() {
+        if (!expanded) {
+            setPage(0);
+            setExpanded(true);
+        }
+    }
+
+    function collapseCard(event) {
+        event.stopPropagation();
+        setPage(0);
+        setExpanded(false);
+    }
+
+    return <>
+    <div className={`panel activity-panel inventory-activity-card ${expanded ? "is-expanded" : ""}`}
+         onClick={expandCard} role={!expanded ? "button" : undefined} tabIndex={!expanded ? 0 : undefined}
+         onKeyDown={(event) => {
+             if (event.currentTarget === event.target
+                 && !expanded
+                 && (event.key === "Enter" || event.key === " ")) expandCard();
+         }}>
+        <div className="panel-head">
+            <div><h2>Actividad de inventario</h2><p>{total} {total === 1 ? "transacción registrada" : "transacciones registradas"}</p></div>
+            {expanded ? <button className="activity-collapse-button" onClick={collapseCard}>
+                <Minimize2 size={15}/>Contraer</button> : <span className="activity-expand-hint">Presiona para ampliar <ChevronRight size={14}/></span>}
+        </div>
+        <div className="inventory-transaction-list">
+            {loading ? <div className="activity-loading"><div className="state-spinner"/><span>Cargando actividad…</span></div>
+                : transactions.length ? transactions.map((transaction) => {
+                    const date = new Date(transaction.created_at);
+                    return <button className="inventory-transaction-row" key={transaction.id}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            setSelected(transaction);
+                        }}>
+                        <i className="clay-dot">
+                            <Plus size={13}/></i><span className="transaction-copy">
+                            <strong>Existencias agregadas</strong>
+                            <small>{transaction.item_count} {transaction.item_count === 1 ? "ingrediente" : "ingredientes"} · {transaction.actor_name}</small>
+                        </span><time title={date.toLocaleString("es-SV")}>{date.toLocaleDateString("es-SV", {
+                            day: "2-digit", month: "short"
+                        })} · {date.toLocaleTimeString("es-SV", {hour: "2-digit", minute: "2-digit"})}</time>
+                        <ChevronRight size={16}/>
+                    </button>;
+                }) : <div className="activity-empty"><Package size={22}/><span>Aún no se han agregado existencias.</span></div>}
+        </div>
+        {total > pageSize && <div className="activity-pagination" onClick={(event) => event.stopPropagation()}>
+            <button disabled={page === 0 || loading} onClick={() => setPage((current) => current - 1)}
+                    aria-label="Página anterior"><ChevronLeft size={15}/></button>
+            <span>Página <strong>{page + 1}</strong> de {pageCount} · {pageSize} por página</span>
+            <button disabled={page + 1 >= pageCount || loading} onClick={() => setPage((current) => current + 1)}
+                    aria-label="Página siguiente"><ChevronRight size={15}/></button>
+        </div>}
+    </div>
+    {selected && <InventoryTransactionDialog transaction={selected} onClose={() => setSelected(null)}/>}
+    </>;
+}
+
+function InventoryTransactionDialog({transaction, onClose}) {
+    const date = new Date(transaction.created_at);
+    return <div className="modal-backdrop" onMouseDown={onClose}>
+        <section className="modal inventory-transaction-dialog" onMouseDown={(event) => event.stopPropagation()}
+                 role="dialog" aria-modal="true" aria-label="Detalle de transacción">
+            <button className="icon-btn modal-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>
+            <span className="eyebrow">ACTIVIDAD DE INVENTARIO</span>
+            <h2>Existencias agregadas</h2>
+            <p>{transaction.actor_name} · {date.toLocaleString("es-SV", {
+                dateStyle: "medium", timeStyle: "short"
+            })}</p>
+            <div className="table-wrap transaction-detail-table"><table><thead><tr>
+                <th>Ingrediente</th><th>Anterior</th><th>Agregado</th><th>Nuevo nivel</th>
+            </tr></thead><tbody>{transaction.items.map((movement) => <tr key={movement.id}>
+                <td><strong>{movement.item?.name ?? "Ingrediente"}</strong><small>{movement.item?.sku || "Sin SKU"}</small></td>
+                <td>{movement.quantity_before == null ? "—" : <>{Number(movement.quantity_before).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, movement.quantity_before)}</>}</td>
+                <td><span className="addition-pill">+{Number(movement.quantity_delta).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, movement.quantity_delta)}</span></td>
+                <td>{movement.quantity_after == null ? "—" : <strong>{Number(movement.quantity_after).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, movement.quantity_after)}</strong>}</td>
+            </tr>)}</tbody></table></div>
+            <div className="dialog-actions"><button className="primary-btn" onClick={onClose}>Cerrar detalle</button></div>
+        </section>
+    </div>;
 }
 
 function Inventory({
@@ -620,45 +714,6 @@ function RecipesPage() {
     </article>)}</div>;
 }
 
-function ShoppingPage({
-                          inventory
-                      }) {
-    const initial = inventory.filter(x => x.stock / x.par < .7).map(x => ({
-        ...x,
-        buy: Math.ceil(x.par - x.stock),
-        checked: false
-    }));
-    const [items, setItems] = useState(initial);
-    const grouped = useMemo(() => Object.groupBy ? Object.groupBy(items, x => x.category) : items.reduce((a, x) => ((a[x.category] ||= []).push(x), a), {}), [items]);
-    const estimated = items.reduce((sum, x) => sum + x.buy * x.price, 0);
-    return <div className="shopping-layout">
-        <div className="panel shopping-main">
-            <div className="panel-head">
-                <div><h2>Lista recomendada</h2><p>Generada según niveles ideales y consumo previsto.</p></div>
-                <button className="secondary-btn"><Plus size={17}/> Agregar ingrediente</button>
-            </div>
-            {Object.entries(grouped).map(([category, list]) => <section className="aisle" key={category}>
-                <div className="aisle-head"><span><Leaf size={17}/>{category}</span><b>{list.length}</b></div>
-                {list.map(item => <label className={`shop-row ${item.checked ? "done" : ""}`} key={item.id}><input
-                    type="checkbox" checked={item.checked}
-                    onChange={() => setItems(items.map(x => x.id === item.id ? {...x, checked: !x.checked} : x))}/><span
-                    className="custom-check"><Check size={14}/></span>
-                    <div className="food-icon">{item.icon}</div>
-                    <div className="shop-name"><strong>{item.name}</strong><span>{item.supplier}</span></div>
-                    <div className="shop-qty">
-                        <strong>{item.buy} {item.unit}</strong><span>{formatMoney(item.buy * item.price)}</span></div>
-                </label>)}</section>)}</div>
-        <aside className="panel order-summary"><span className="eyebrow">RESUMEN</span><h2>Compra semanal</h2>
-            <div className="summary-ring"><ShoppingBasket
-                size={24}/><strong>{items.filter(x => !x.checked).length}</strong><span>pendientes</span></div>
-            <div className="summary-line"><span>Estimado</span><strong>{formatMoney(estimated)}</strong></div>
-            <div className="summary-line">
-                <span>Proveedores</span><strong>{new Set(items.map(x => x.supplier)).size}</strong></div>
-            <button className="primary-btn full"><ClipboardCheck size={18}/> Revisar y enviar</button>
-            <p className="ai-note"><Sparkles size={16}/> Actualizada con el consumo de los últimos 30 días.</p></aside>
-    </div>;
-}
-
 function ReceiptsPage({
                           onUpload
                       }) {
@@ -737,7 +792,11 @@ function UploadModal({
 
 export default function App() {
     const {profile, user, signOut} = useAuth();
-    const [page, setPage] = useState(() => isInventoryRelease ? "inventory" : "dashboard");
+    const isFullRelease = releaseScope === RELEASE_SCOPES.FULL;
+    const navigationItems = releaseScope === RELEASE_SCOPES.INVENTORY
+        ? inventoryReleaseNavItems
+        : releaseScope === RELEASE_SCOPES.OPERATIONS ? operationsReleaseNavItems : fullNavItems;
+    const [page, setPage] = useState(() => releaseScope === RELEASE_SCOPES.INVENTORY ? "inventory" : "dashboard");
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [theme, setTheme] = useState(readTheme);
@@ -765,19 +824,20 @@ export default function App() {
     return <div className="app-shell">
         <Sidebar page={page} setPage={setPage} open={mobileOpen} setOpen={setMobileOpen}
                  collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} identity={identity}
-                 onSignOut={handleSignOut} signingOut={signingOut} inventoryOnly={isInventoryRelease}/>
+                 onSignOut={handleSignOut} signingOut={signingOut} navigationItems={navigationItems}
+                 showTeam={isFullRelease}/>
         {mobileOpen && <div className="side-overlay" onClick={() => setMobileOpen(false)}/>}
         <main className={`main ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}><Header page={page}
                                                                                         setOpen={setMobileOpen}
                                                                                         onUpload={() => setUploadOpen(true)}
-                                                                                        inventoryOnly={isInventoryRelease}/>
+                                                                                        showUpload={isFullRelease}/>
             <div className="content">{page === "dashboard" &&
-                <Dashboard inventory={inventory} setPage={setPage}/>}{page === "inventory" &&
+                <Dashboard setPage={setPage}/>}{page === "inventory" &&
                 <CatalogPage/>}{page === "prep" && <PrepPage/>}{page === "recipes" &&
-                <RecipesPage/>}{page === "shopping" && <ShoppingPage inventory={inventory}/>}{page === "receipts" &&
+                <RecipesPage/>}{page === "shopping" && <ShoppingPage/>}{page === "receipts" &&
                 <ReceiptsPage onUpload={() => setUploadOpen(true)}/>} {page === "settings" &&
                 <SettingsPage theme={theme} onThemeChange={setTheme}/>}</div>
         </main>
-        {!isInventoryRelease && uploadOpen && <UploadModal onClose={() => setUploadOpen(false)}/>}
+        {isFullRelease && uploadOpen && <UploadModal onClose={() => setUploadOpen(false)}/>}
     </div>;
 }

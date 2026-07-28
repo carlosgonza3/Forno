@@ -6,6 +6,10 @@ describe("release scope", () => {
     expect(normalizeReleaseScope("inventory")).toBe(RELEASE_SCOPES.INVENTORY);
   });
 
+  it("enables the dashboard, inventory, and purchases release explicitly", () => {
+    expect(normalizeReleaseScope("operations")).toBe(RELEASE_SCOPES.OPERATIONS);
+  });
+
   it("keeps unfinished modules available only in the full development scope", () => {
     expect(normalizeReleaseScope("full")).toBe(RELEASE_SCOPES.FULL);
     expect(normalizeReleaseScope(undefined)).toBe(RELEASE_SCOPES.FULL);
@@ -14,5 +18,9 @@ describe("release scope", () => {
 
   it("supports a fail-closed inventory fallback for production builds", () => {
     expect(normalizeReleaseScope(undefined, RELEASE_SCOPES.INVENTORY)).toBe(RELEASE_SCOPES.INVENTORY);
+  });
+
+  it("supports the current operations release as a production fallback", () => {
+    expect(normalizeReleaseScope(undefined, RELEASE_SCOPES.OPERATIONS)).toBe(RELEASE_SCOPES.OPERATIONS);
   });
 });
