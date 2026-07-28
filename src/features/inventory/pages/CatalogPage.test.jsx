@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogPage from "./CatalogPage";
 
 const loadCatalog = vi.fn();
-const addInventoryExistences = vi.fn();
+const setInventoryExistences = vi.fn();
 const downloadInventoryCsv = vi.fn();
 let authRole = "local";
 
@@ -12,7 +12,7 @@ vi.mock("../../auth/AuthProvider", () => ({
 }));
 
 vi.mock("../api/catalogRepository", () => ({
-  addInventoryExistences: (...args) => addInventoryExistences(...args),
+  setInventoryExistences: (...args) => setInventoryExistences(...args),
   loadCatalog: (...args) => loadCatalog(...args),
   saveCatalogItem: vi.fn(),
   saveSupplier: vi.fn(),
@@ -51,8 +51,8 @@ describe("CatalogPage inventory explorer", () => {
   beforeEach(() => {
     authRole = "local";
     loadCatalog.mockClear();
-    addInventoryExistences.mockClear();
-    addInventoryExistences.mockResolvedValue([]);
+    setInventoryExistences.mockClear();
+    setInventoryExistences.mockResolvedValue([]);
     downloadInventoryCsv.mockClear();
     loadCatalog.mockResolvedValue({
       departments: [produce, pantry],
@@ -175,47 +175,50 @@ describe("CatalogPage inventory explorer", () => {
     expect(screen.getByRole("heading", { name: "Ingredientes y proveedores" })).toBeInTheDocument();
   });
 
-  it("lets any user add existence and review only edited ingredients", async () => {
+  it("lets any user enter the final existence with a note and review only edited ingredients", async () => {
     render(<CatalogPage />);
     await screen.findByText("Tomate");
 
-    fireEvent.click(screen.getByRole("button", { name: "Agregar existencias" }));
-    expect(screen.getByRole("heading", { name: "Agregar existencias" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar existencias" }));
+    expect(screen.getByRole("heading", { name: "Actualizar existencias" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sumar una unidad a Tomate" }));
-    expect(screen.getByLabelText("Agregar a Tomate")).toHaveValue("1");
-    expect(screen.getByRole("button", { name: "Restar una unidad a Tomate" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sumar una unidad a Tomate" })).toBeInTheDocument();
-    expect([...screen.getByLabelText("Agregar a Tomate").parentElement.querySelectorAll("button")]
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar una unidad de Tomate" }));
+    expect(screen.getByLabelText("Nueva existencia de Tomate")).toHaveValue("2");
+    expect(screen.getByRole("button", { name: "Disminuir una unidad de Tomate" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aumentar una unidad de Tomate" })).toBeInTheDocument();
+    expect([...screen.getByLabelText("Nueva existencia de Tomate").parentElement.querySelectorAll("button")]
       .map((button) => button.getAttribute("aria-label"))).toEqual([
-        "Sumar una unidad a Tomate",
-        "Restar una unidad a Tomate",
-      ]);
-    fireEvent.click(screen.getByRole("button", { name: "Sumar una unidad a Tomate" }));
-    expect(screen.getByLabelText("Agregar a Tomate")).toHaveValue("2");
-    fireEvent.click(screen.getByRole("button", { name: "Restar una unidad a Tomate" }));
-    expect(screen.getByLabelText("Agregar a Tomate")).toHaveValue("1");
+        "Aumentar una unidad de Tomate",
+        "Disminuir una unidad de Tomate",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Disminuir una unidad de Tomate" }));
+    expect(screen.getByLabelText("Nueva existencia de Tomate")).toHaveValue("1");
+    fireEvent.click(screen.getByRole("button", { name: "Disminuir una unidad de Tomate" }));
+    expect(screen.getByLabelText("Nueva existencia de Tomate")).toHaveValue("0");
+    expect(screen.getByRole("button", { name: "Disminuir una unidad de Tomate" })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Agregar a Tomate"), { target: { value: "3.5" } });
-    expect(screen.getByLabelText("Agregar a Tomate").closest("tr")).toHaveClass("edited-row");
+    fireEvent.change(screen.getByLabelText("Nueva existencia de Tomate"), { target: { value: "3.5" } });
+    fireEvent.change(screen.getByLabelText("Nota de Tomate"), { target: { value: "Conteo después de entrega" } });
+    expect(screen.getByLabelText("Nueva existencia de Tomate").closest("tr")).toHaveClass("edited-row");
 
     fireEvent.mouseDown(document.querySelector(".existence-backdrop"));
     expect(screen.getByRole("alertdialog", { name: "¿Salir sin guardar?" })).toBeInTheDocument();
-    expect(screen.getByText(/estas cantidades no se guardarán/i)).toBeInTheDocument();
+    expect(screen.getByText(/las cantidades y sus notas no se guardarán/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
-    expect(screen.getByLabelText("Agregar a Tomate")).toHaveValue("3.5");
+    expect(screen.getByLabelText("Nueva existencia de Tomate")).toHaveValue("3.5");
 
     fireEvent.click(screen.getByRole("button", { name: /Continuar/ }));
 
     expect(screen.getByRole("heading", { name: "Revisar actualizaciones" })).toBeInTheDocument();
-    expect(screen.getByText("+3.5 Libras (lb)")).toBeInTheDocument();
-    expect(screen.getByText("4.5 Libras (lb)")).toBeInTheDocument();
-    const reviewDialog = screen.getByRole("region", { name: "Agregar existencias" });
+    expect(screen.getByText("+2.5 Libras (lb)")).toBeInTheDocument();
+    expect(screen.getByText("3.5 Libras (lb)")).toBeInTheDocument();
+    expect(screen.getByText("Conteo después de entrega")).toBeInTheDocument();
+    const reviewDialog = screen.getByRole("region", { name: "Actualizar existencias" });
     expect(reviewDialog).not.toHaveTextContent("Harina");
 
     fireEvent.click(screen.getByRole("button", { name: /Confirmar y guardar/ }));
-    await waitFor(() => expect(addInventoryExistences).toHaveBeenCalledWith([
-      expect.objectContaining({ id: "tomato", increment: 3.5 }),
+    await waitFor(() => expect(setInventoryExistences).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "tomato", newQuantity: 3.5, note: "Conteo después de entrega" }),
     ]));
   });
 });

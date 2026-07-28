@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import {useAuth} from "../../auth/AuthProvider";
 import {
-    addInventoryExistences,
+    setInventoryExistences,
     loadCatalog,
     saveCatalogItem,
     saveSupplier,
@@ -68,6 +68,7 @@ function errorMessage(error) {
         return "La actualización de inventario aún no está habilitada en la base de datos.";
     }
     if (error?.code === "22023") return "Una de las cantidades o ingredientes no es válida.";
+    if (error?.code === "23514") return "La existencia de un ingrediente no puede quedar por debajo de cero.";
     if (error?.code === "P0002") return "Uno de los ingredientes ya no está activo o disponible.";
     return "No pudimos completar la operación. Intenta nuevamente.";
 }
@@ -207,7 +208,7 @@ export default function CatalogPage() {
                 </button>}
                 {tab === "items" && <button className="primary-btn existence-entry-button"
                                             onClick={() => setExistenceOpen(true)} disabled={loading}>
-                    <Plus size={17}/><span>Agregar existencias</span>
+                    <Plus size={17}/><span>Actualizar existencias</span>
                 </button>}
             </div>
         </section>
@@ -369,7 +370,8 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
     const [query, setQuery] = useState("");
     const [departmentId, setDepartmentId] = useState("");
     const [groupBy, setGroupBy] = useState("department");
-    const [increments, setIncrements] = useState({});
+    const [quantities, setQuantities] = useState({});
+    const [notes, setNotes] = useState({});
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
@@ -381,14 +383,28 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
     const groups = useMemo(() => groupCatalogItems(sortCatalogItems(visibleItems, "name"), groupBy),
         [groupBy, visibleItems]);
     const editedItems = useMemo(() => catalog.items
-        .filter((item) => Number(increments[item.id]) > 0)
-        .map((item) => ({...item, increment: Number(increments[item.id])})), [catalog.items, increments]);
-    const addedTotal = editedItems.reduce((total, item) => total + item.increment, 0);
+        .filter((item) => Object.hasOwn(quantities, item.id)
+            && quantities[item.id] !== ""
+            && Number.isFinite(Number(quantities[item.id]))
+            && Number(quantities[item.id]) !== Number(item.quantity))
+        .map((item) => ({
+            ...item,
+            newQuantity: Number(quantities[item.id]),
+            note: notes[item.id]?.trim() || "",
+        })), [catalog.items, notes, quantities]);
+    const hasQuantityDraft = catalog.items.some((item) => Object.hasOwn(quantities, item.id)
+        && quantities[item.id] !== String(Number(item.quantity)));
+    const hasDraftChanges = hasQuantityDraft
+        || Object.values(notes).some((note) => note.trim().length > 0);
 
-    function setIncrement(id, value) {
+    function setQuantity(item, value) {
         if (value === "" || /^\d*(\.\d{0,3})?$/.test(value)) {
-            setIncrements((current) => ({...current, [id]: value}));
+            setQuantities((current) => ({...current, [item.id]: value}));
         }
+    }
+
+    function setNote(id, value) {
+        setNotes((current) => ({...current, [id]: value.slice(0, 500)}));
     }
 
     function toggleGroup(key) {
@@ -404,7 +420,7 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
         setSaving(true);
         setError("");
         try {
-            await addInventoryExistences(editedItems);
+            await setInventoryExistences(editedItems);
             await onSaved();
         } catch (nextError) {
             setError(errorMessage(nextError));
@@ -414,7 +430,7 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
 
     function requestClose() {
 
-        if (editedItems.length) setDiscardOpen(true);
+        if (hasDraftChanges) setDiscardOpen(true);
         else onClose();
     }
 
@@ -422,9 +438,9 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
     return <>
     <div className="modal-backdrop existence-backdrop" onMouseDown={requestClose}>
         <section className="modal existence-dialog" onMouseDown={(event) => event.stopPropagation()}
-                 aria-label="Agregar existencias">
+                 aria-label="Actualizar existencias">
             <div className="existence-dialog-head">
-                <h2>{stage === "entry" ? "Agregar existencias" : "Revisar actualizaciones"}</h2>
+                <h2>{stage === "entry" ? "Actualizar existencias" : "Revisar actualizaciones"}</h2>
                 <div className="existence-steps" aria-label="Progreso">
                     <span className="active"><i>{stage === "review" ? <Check size={12}/> : "1"}</i>Ingresar</span>
                     <b/>
@@ -458,20 +474,24 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
                                 <span className="inventory-group-identity"><small>Grupo</small><strong>{group.label}</strong></span>
                                 <span className="inventory-group-summary">{group.items.length} ingredientes</span>
                             </button>}
-                            {!collapsed && <ExistenceTable items={group.items} increments={increments}
-                                onIncrement={setIncrement}/>}
+                            {!collapsed && <ExistenceTable items={group.items} quantities={quantities} notes={notes}
+                                onQuantity={setQuantity} onNote={setNote}/>}
                         </section>;
                     })}
                 </div>
             </> : <div className="existence-review">
                 <div className="table-wrap">
                     <table><thead><tr><th>Ingrediente</th><th>Existencia anterior</th>
-                    <th>Se agrega</th><th>Nueva existencia</th></tr></thead>
+                    <th>Nueva existencia</th><th>Cambio</th><th>Nota</th></tr></thead>
                     <tbody>{editedItems.map((item) => <tr key={item.id}><td><strong>{item.name}</strong>
                         <small className="review-sku">{item.sku || "Sin SKU"}</small></td>
                         <td>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</td>
-                        <td><span className="addition-pill">+{item.increment.toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.increment)}</span></td>
-                        <td><strong>{(Number(item.quantity) + item.increment).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, Number(item.quantity) + item.increment)}</strong></td>
+                        <td><strong>{item.newQuantity.toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.newQuantity)}</strong></td>
+                        <td><span className={item.newQuantity > Number(item.quantity) ? "addition-pill" : "subtraction-pill"}>
+                            {item.newQuantity > Number(item.quantity) ? "+" : ""}
+                            {(item.newQuantity - Number(item.quantity)).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, Math.abs(item.newQuantity - Number(item.quantity)))}
+                        </span></td>
+                        <td className="adjustment-note-review">{item.note || "Sin nota"}</td>
                     </tr>)}</tbody></table></div>
             </div>}
 
@@ -496,8 +516,8 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
             <div className="discard-warning-icon"><AlertTriangle size={23}/></div>
             <span className="eyebrow">CAMBIOS SIN GUARDAR</span>
             <h2 id="discard-warning-title">¿Salir sin guardar?</h2>
-            <p>Agregaste existencias a {editedItems.length} {editedItems.length === 1 ? "ingrediente" : "ingredientes"}.
-                Si sales ahora, estas cantidades no se guardarán.</p>
+            <p>Tienes cambios en esta actualización de inventario.
+                Si sales ahora, las cantidades y sus notas no se guardarán.</p>
             <div className="discard-warning-actions">
                 <button type="button" className="secondary-btn" onClick={() => setDiscardOpen(false)}>
                     Seguir editando</button>
@@ -508,36 +528,42 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
     </>;
 }
 
-function ExistenceTable({items, increments, onIncrement}) {
+function ExistenceTable({items, quantities, notes, onQuantity, onNote}) {
     function addOne(item) {
-        const current = Number(increments[item.id]) || 0;
-        onIncrement(item.id, String(Number((current + 1).toFixed(3))));
+        const current = Number(quantities[item.id] ?? item.quantity);
+        onQuantity(item, String(Number((current + 1).toFixed(3))));
     }
 
     function removeOne(item) {
-        const current = Number(increments[item.id]) || 0;
+        const current = Number(quantities[item.id] ?? item.quantity);
         const next = Math.max(0, current - 1);
-        onIncrement(item.id, next === 0 ? "" : String(Number(next.toFixed(3))));
+        onQuantity(item, String(Number(next.toFixed(3))));
     }
 
     return <div className="table-wrap existence-table"><table><thead><tr><th>Ingrediente</th><th>Existencia</th>
-        <th>Unidad</th><th>Cantidad a agregar</th></tr></thead><tbody>{items.map((item) => {
-        const value = increments[item.id] ?? "";
-        const hasAddition = Number(value) > 0;
-        return <tr key={item.id} className={Number(value) > 0 ? "edited-row" : ""}>
+        <th>Unidad</th><th>Nueva existencia</th><th>Nota opcional</th></tr></thead><tbody>{items.map((item) => {
+        const value = quantities[item.id] ?? String(Number(item.quantity));
+        const quantity = value === "" ? Number.NaN : Number(value);
+        const changed = Number.isFinite(quantity) && quantity !== Number(item.quantity);
+        return <tr key={item.id} className={changed ? "edited-row" : ""}>
             <td><div className="product-cell"><div className="food-icon"><Boxes size={17}/></div><div>
                 <strong>{item.name}</strong><span>{item.sku || "Sin SKU"}</span></div></div></td>
             <td><strong>{Number(item.quantity).toLocaleString("es-SV")}</strong></td>
             <td>{quantityUnitLabel(item.base_unit, item.quantity)}</td>
             <td><div className="increment-field"><span className="increment-controls">
                 <button type="button" className="increment-prefix" onClick={() => addOne(item)}
-                    aria-label={`Sumar una unidad a ${item.name}`} title="Sumar 1"><Plus size={15}/></button>
-                {hasAddition && <button type="button" className="increment-prefix"
-                    onClick={() => removeOne(item)} aria-label={`Restar una unidad a ${item.name}`}
-                    title="Restar 1"><Minus size={15}/></button>}
+                    aria-label={`Aumentar una unidad de ${item.name}`} title="Aumentar 1"><Plus size={15}/></button>
+                <button type="button" className="increment-prefix" onClick={() => removeOne(item)}
+                    aria-label={`Disminuir una unidad de ${item.name}`} title="Disminuir 1"
+                    disabled={!Number.isFinite(quantity) || quantity <= 0}><Minus size={15}/></button>
                 </span><input type="text" inputMode="decimal"
-                aria-label={`Agregar a ${item.name}`} placeholder="0" value={value}
-                onChange={(event) => onIncrement(item.id, event.target.value)}/><span className="increment-unit">{quantityUnitLabel(item.base_unit, Number(value) || 0)}</span></div></td>
+                aria-label={`Nueva existencia de ${item.name}`} placeholder="0" value={value}
+                onChange={(event) => onQuantity(item, event.target.value)}/><span className="increment-unit">
+                    {quantityUnitLabel(item.base_unit, Number.isFinite(quantity) ? quantity : item.quantity)}
+                </span></div></td>
+            <td><input className="adjustment-note-input" type="text" maxLength="500"
+                aria-label={`Nota de ${item.name}`} placeholder="Motivo o referencia…"
+                value={notes[item.id] ?? ""} onChange={(event) => onNote(item.id, event.target.value)}/></td>
         </tr>;
     })}</tbody></table></div>;
 }

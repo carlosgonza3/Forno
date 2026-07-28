@@ -1,5 +1,5 @@
 export function suggestedPurchaseQuantity(item) {
-  return Math.max(0, Number(item.reorder_point) - Number(item.quantity));
+  return Math.max(0, Number(item.par_level) - Number(item.quantity));
 }
 
 export function buildShoppingItems(items = [], decisions = [], pendingItemIds = []) {
@@ -13,12 +13,16 @@ export function buildShoppingItems(items = [], decisions = [], pendingItemIds = 
     .map((item) => {
       const decision = decisionsByItem.get(item.id);
       const suggestedQuantity = suggestedPurchaseQuantity(item);
+      const quantityManuallyOverridden = decision?.quantity_manually_overridden === true;
+      const quantityOverride = !quantityManuallyOverridden || decision?.quantity_override == null
+        ? null
+        : Number(decision.quantity_override);
       return {
         ...item,
         suggestedQuantity,
-        purchaseQuantity: decision?.quantity_override == null
-          ? suggestedQuantity
-          : Number(decision.quantity_override),
+        quantityOverride,
+        quantityManuallyOverridden,
+        purchaseQuantity: quantityOverride ?? suggestedQuantity,
         included: decision?.included ?? true,
       };
     });

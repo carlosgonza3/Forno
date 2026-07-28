@@ -12,6 +12,7 @@ const item = (values = {}) => ({
     sku: "FOR-001",
     active: true,
     quantity: 2,
+    par_level: 10,
     reorder_point: 5,
     department: {id: "produce", name: "Frutas"},
     supplier: {id: "market", name: "Mercado"},
@@ -19,12 +20,12 @@ const item = (values = {}) => ({
 });
 
 describe("shopping model", () => {
-    it("calculates the quantity needed to reach the reorder point", () => {
-        expect(suggestedPurchaseQuantity(item())).toBe(3);
-        expect(suggestedPurchaseQuantity(item({quantity: 7}))).toBe(0);
+    it("calculates the quantity needed to reach the ideal level", () => {
+        expect(suggestedPurchaseQuantity(item())).toBe(8);
+        expect(suggestedPurchaseQuantity(item({quantity: 12}))).toBe(0);
     });
 
-    it("only includes active items below a configured reorder point", () => {
+    it("uses the reorder point as the trigger and the ideal level as the purchase target", () => {
         const items = buildShoppingItems([
             item(),
             item({id: "equal", quantity: 5}),
@@ -32,16 +33,46 @@ describe("shopping model", () => {
             item({id: "unconfigured", reorder_point: 0}),
         ]);
         expect(items.map((entry) => entry.id)).toEqual(["item-1"]);
-        expect(items[0].purchaseQuantity).toBe(3);
+        expect(items[0].purchaseQuantity).toBe(8);
     });
 
     it("applies persisted team decisions", () => {
         const [result] = buildShoppingItems([item()], [{
             item_id: "item-1",
-            quantity_override: 8,
+            quantity_override: 12,
+            quantity_manually_overridden: true,
             included: false,
         }]);
-        expect(result).toMatchObject({purchaseQuantity: 8, suggestedQuantity: 3, included: false});
+        expect(result).toMatchObject({purchaseQuantity: 12, suggestedQuantity: 8, included: false});
+    });
+
+    it("does not freeze the suggestion when only inclusion was persisted", () => {
+        const [result] = buildShoppingItems([item()], [{
+            item_id: "item-1",
+            quantity_override: null,
+            included: false,
+        }]);
+        expect(result).toMatchObject({
+            purchaseQuantity: 8,
+            suggestedQuantity: 8,
+            quantityOverride: null,
+            included: false,
+        });
+    });
+
+    it("ignores legacy quantities that were not explicitly marked as manual", () => {
+        const [result] = buildShoppingItems([item()], [{
+            item_id: "item-1",
+            quantity_override: 60,
+            quantity_manually_overridden: false,
+            included: true,
+        }]);
+        expect(result).toMatchObject({
+            purchaseQuantity: 8,
+            suggestedQuantity: 8,
+            quantityOverride: null,
+            quantityManuallyOverridden: false,
+        });
     });
 
     it("excludes ingredients that are already on a pending purchase list", () => {

@@ -54,6 +54,7 @@ export default function ShoppingPage() {
     const [query, setQuery] = useState("");
     const [groupBy, setGroupBy] = useState("department");
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
+    const [collapseInitialized, setCollapseInitialized] = useState(false);
     const [loading, setLoading] = useState(true);
     const [savingIds, setSavingIds] = useState(() => new Set());
     const [message, setMessage] = useState("");
@@ -93,6 +94,12 @@ export default function ShoppingPage() {
     ])).values()].sort((left, right) => left.localeCompare(right, "es"));
     const hasFilters = Boolean(query);
 
+    useEffect(() => {
+        if (loading || collapseInitialized) return;
+        setCollapsedGroups(new Set(groups.filter((group) => group.items.length).map((group) => group.key)));
+        setCollapseInitialized(true);
+    }, [collapseInitialized, groups, loading]);
+
     function setSaving(itemId, saving) {
         setSavingIds((current) => {
             const next = new Set(current);
@@ -116,14 +123,21 @@ export default function ShoppingPage() {
     async function persist(itemId, changes) {
         const current = items.find((item) => item.id === itemId);
         if (!current) return;
-        const next = {...current, ...changes};
+        const quantityChanged = Object.hasOwn(changes, "purchaseQuantity");
+        const next = {
+            ...current,
+            ...changes,
+            quantityOverride: quantityChanged ? Number(changes.purchaseQuantity) : current.quantityOverride,
+            quantityManuallyOverridden: quantityChanged ? true : current.quantityManuallyOverridden,
+        };
         setItems((entries) => entries.map((item) => item.id === itemId ? next : item));
         setSaving(itemId, true);
         setMessage("");
         try {
             await saveShoppingDecision({
                 itemId,
-                quantityOverride: Number(next.purchaseQuantity),
+                quantityOverride: next.quantityOverride,
+                quantityManuallyOverridden: next.quantityManuallyOverridden,
                 included: next.included,
             });
         } catch (error) {
@@ -142,6 +156,8 @@ export default function ShoppingPage() {
             setItems((entries) => entries.map((entry) => entry.id === item.id ? {
                 ...entry,
                 purchaseQuantity: entry.suggestedQuantity,
+                quantityOverride: null,
+                quantityManuallyOverridden: false,
                 included: true,
             } : entry));
         } catch (error) {
@@ -174,7 +190,8 @@ export default function ShoppingPage() {
         try {
             await saveShoppingDecisions(groupItems.map((item) => ({
                 itemId: item.id,
-                quantityOverride: Number(item.purchaseQuantity),
+                quantityOverride: item.quantityOverride,
+                quantityManuallyOverridden: item.quantityManuallyOverridden,
                 included: include,
             })));
         } catch (error) {
@@ -194,7 +211,6 @@ export default function ShoppingPage() {
             await createPurchaseList(review.items);
             setReview(null);
             await refresh();
-            setSuccess("La lista de compras se guardó como pendiente.");
         } catch (error) {
             setMessage(errorMessage(error));
         } finally {
@@ -202,12 +218,12 @@ export default function ShoppingPage() {
         }
     }
 
-    async function confirmReceipt() {
+    async function confirmReceipt(receivedItems) {
         if (!receivingList) return;
         setSavingList(true);
         setMessage("");
         try {
-            await receivePurchaseList(receivingList.id);
+            await receivePurchaseList(receivingList.id, receivedItems);
             setReceivingList(null);
             await refresh();
             setSuccess("La lista se recibió y sus cantidades se agregaron al inventario.");
@@ -232,7 +248,7 @@ export default function ShoppingPage() {
         <div className="panel shopping-main">
             <div className="shopping-heading">
                 <div><span className="eyebrow">COMPRAS</span><h2>Ingredientes bajo el punto de reorden</h2>
-                    <p>Las cantidades sugeridas comparan la existencia actual con el punto de reorden.</p></div>
+                    <p>Las cantidades sugeridas completan la existencia actual hasta el nivel ideal.</p></div>
                 <button className="secondary-btn" onClick={refresh} disabled={loading}>
                     <RefreshCw size={16} className={loading ? "spinning" : ""}/>Actualizar
                 </button>
@@ -241,7 +257,13 @@ export default function ShoppingPage() {
                 <label className="search-box"><Search size={17}/><input value={query}
                     onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ingrediente o proveedor…"/></label>
                 <label className="shopping-select"><span>Agrupar</span><select value={groupBy}
-                    onChange={(event) => setGroupBy(event.target.value)}>
+                    onChange={(event) => {
+                        const nextGroupBy = event.target.value;
+                        setGroupBy(nextGroupBy);
+                        setCollapsedGroups(new Set(groupShoppingItems(filteredItems, nextGroupBy)
+                            .filter((group) => group.items.length)
+                            .map((group) => group.key)));
+                    }}>
                     <option value="department">Departamento</option>
                     <option value="supplier">Proveedor</option>
                     <option value="none">Sin agrupación</option>
@@ -276,7 +298,7 @@ export default function ShoppingPage() {
                         </header>
                         {!collapsed && <div className="table-wrap shopping-table" id={`shopping-group-${group.key}`}><table><thead><tr>
                             <th>Incluir</th><th>Ingrediente</th><th>Proveedor</th><th>Existencia</th>
-                            <th>Punto de reorden</th><th>Cantidad a comprar</th><th></th>
+                            <th>Nivel ideal</th><th>Cantidad a comprar</th><th></th>
                         </tr></thead><tbody>{group.items.map((item) => {
                             const saving = savingIds.has(item.id);
                             return <tr className={!item.included ? "shopping-excluded" : ""} key={item.id}>
@@ -288,7 +310,7 @@ export default function ShoppingPage() {
                                     <span><strong>{item.name}</strong><small>{item.sku || "Sin SKU"}</small></span></div></td>
                                 <td>{item.supplier?.name ?? <span className="shopping-missing">Sin proveedor</span>}</td>
                                 <td>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</td>
-                                <td>{Number(item.reorder_point).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.reorder_point)}</td>
+                                <td>{Number(item.par_level).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.par_level)}</td>
                                 <td><div className="shopping-quantity">
                                     <button onClick={() => persist(item.id, {purchaseQuantity: Number(item.purchaseQuantity) + 1})}
                                         disabled={saving} aria-label={`Agregar una unidad de ${item.name}`}><Plus size={14}/></button>
@@ -436,10 +458,12 @@ function PurchaseListHistory({lists, expandedLists, onToggle, onReceive}) {
                 </button>
                 {expanded && <div className="purchase-history-detail">
                     <div className="table-wrap"><table><thead><tr>
-                        <th>Ingrediente</th><th>Proveedor</th><th>Cantidad ordenada</th>
+                        <th>Ingrediente</th><th>Proveedor</th><th>Cantidad ordenada</th><th>Cantidad recibida</th>
                     </tr></thead><tbody>{list.items.map((item) => <tr key={item.item_id}>
                         <td><strong>{item.item_name}</strong></td><td>{item.supplier_name}</td>
                         <td>{Number(item.quantity_ordered).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity_ordered)}</td>
+                        <td>{item.quantity_received == null ? "—"
+                            : <strong>{Number(item.quantity_received).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity_received)}</strong>}</td>
                     </tr>)}</tbody></table></div>
                     <footer>
                         <div><button className="secondary-btn" onClick={() => downloadShoppingCsv(exportedItems)}>
@@ -464,20 +488,85 @@ function PurchaseListHistory({lists, expandedLists, onToggle, onReceive}) {
 }
 
 function ReceivePurchaseDialog({list, saving, onClose, onConfirm}) {
-    return <div className="modal-backdrop" onMouseDown={onClose}>
+    const [received, setReceived] = useState(() => Object.fromEntries(list.items.map((item) => [
+        item.item_id,
+        String(Number(item.quantity_ordered)),
+    ])));
+    const receivedItems = list.items.map((item) => ({
+        itemId: item.item_id,
+        quantityReceived: Number(received[item.item_id]),
+    }));
+    const valid = list.items.every((item) => received[item.item_id] !== ""
+        && Number.isFinite(Number(received[item.item_id]))
+        && Number(received[item.item_id]) >= 0);
+    const missingCount = list.items.filter((item) =>
+        Number(received[item.item_id]) < Number(item.quantity_ordered)).length;
+
+    function setQuantity(item, value) {
+        if (value === "" || /^\d*(\.\d{0,3})?$/.test(value)) {
+            setReceived((current) => ({...current, [item.item_id]: value}));
+        }
+    }
+
+    function changeBy(item, amount) {
+        const current = Number(received[item.item_id]) || 0;
+        setQuantity(item, String(Number(Math.max(0, current + amount).toFixed(3))));
+    }
+
+    return <div className="modal-backdrop receive-purchase-backdrop" onMouseDown={onClose}>
         <section className="modal receive-purchase-dialog" role="dialog" aria-modal="true"
-            aria-label="Confirmar recepción" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="receive-purchase-icon"><PackageCheck size={24}/></div>
-            <span className="eyebrow">CONFIRMAR RECEPCIÓN</span>
-            <h2>¿Ya recibiste esta compra?</h2>
-            <p>Se agregarán las cantidades ordenadas de {list.item_count} {list.item_count === 1
-                ? "ingrediente" : "ingredientes"} al inventario. Esta acción no puede repetirse.</p>
-            <div className="receive-purchase-actions">
-                <button className="secondary-btn" onClick={onClose} disabled={saving}>Cancelar</button>
-                <button className="primary-btn" onClick={onConfirm} disabled={saving}>
-                    <PackageCheck size={16}/>{saving ? "Agregando…" : "Recibir y agregar"}
-                </button>
+            aria-label="Revisar recepción" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="receive-purchase-heading">
+                <div className="receive-purchase-icon"><PackageCheck size={24}/></div>
+                <div><span className="eyebrow">REVISAR RECEPCIÓN</span>
+                    <h2>Compara lo ordenado con lo recibido</h2>
+                    <p>Actualiza las cantidades que realmente entregó cada proveedor. Puedes indicar cero si un producto no llegó.</p>
+                </div>
+            </header>
+            <div className="receive-purchase-summary">
+                <span><strong>{list.item_count}</strong> {list.item_count === 1 ? "ingrediente ordenado" : "ingredientes ordenados"}</span>
+                <span className={missingCount ? "has-missing" : "is-complete"}>
+                    {missingCount ? `${missingCount} ${missingCount === 1 ? "con diferencia" : "con diferencias"}` : "Entrega completa"}
+                </span>
             </div>
+            <div className="table-wrap receive-purchase-table"><table><thead><tr>
+                <th>Ingrediente</th><th>Proveedor</th><th>Ordenado</th><th>Recibido</th><th>Resultado</th>
+            </tr></thead><tbody>{list.items.map((item) => {
+                const ordered = Number(item.quantity_ordered);
+                const receivedQuantity = Number(received[item.item_id]);
+                const difference = receivedQuantity - ordered;
+                return <tr key={item.item_id} className={difference < 0 ? "has-missing" : ""}>
+                    <td><strong>{item.item_name}</strong><small>{item.base_unit}</small></td>
+                    <td>{item.supplier_name}</td>
+                    <td>{ordered.toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, ordered)}</td>
+                    <td><div className="receive-quantity-field">
+                        <button type="button" onClick={() => changeBy(item, -1)}
+                            disabled={saving || receivedQuantity <= 0}
+                            aria-label={`Disminuir cantidad recibida de ${item.item_name}`}><Minus size={14}/></button>
+                        <input type="text" inputMode="decimal" value={received[item.item_id]}
+                            disabled={saving} aria-label={`Cantidad recibida de ${item.item_name}`}
+                            onChange={(event) => setQuantity(item, event.target.value)}/>
+                        <button type="button" onClick={() => changeBy(item, 1)} disabled={saving}
+                            aria-label={`Aumentar cantidad recibida de ${item.item_name}`}><Plus size={14}/></button>
+                        <span>{quantityUnitLabel(item.base_unit, receivedQuantity)}</span>
+                    </div></td>
+                    <td>{difference === 0
+                        ? <span className="receipt-result complete">Completo</span>
+                        : difference < 0
+                            ? <span className="receipt-result missing">Faltan {Math.abs(difference).toLocaleString("es-SV")}</span>
+                            : <span className="receipt-result extra">Extra {difference.toLocaleString("es-SV")}</span>}</td>
+                </tr>;
+            })}</tbody></table></div>
+            <footer className="receive-purchase-actions">
+                <p>Solo las cantidades recibidas se agregarán al inventario. Esta recepción no puede repetirse.</p>
+                <div>
+                <button className="secondary-btn" onClick={onClose} disabled={saving}>Cancelar</button>
+                <button className="primary-btn" onClick={() => onConfirm(receivedItems)}
+                    disabled={saving || !valid}>
+                    <PackageCheck size={16}/>{saving ? "Confirmando…" : "Confirmar recepción"}
+                </button>
+                </div>
+            </footer>
         </section>
     </div>;
 }

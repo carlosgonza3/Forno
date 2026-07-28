@@ -6,6 +6,7 @@ import {
 import {
     AlertTriangle,
     ArrowDownRight,
+    ArrowUpDown,
     ArrowUpRight,
     Bell,
     BookOpen,
@@ -542,15 +543,15 @@ function RecentInventoryActivity() {
                             setSelected(transaction);
                         }}>
                         <i className="clay-dot">
-                            <Plus size={13}/></i><span className="transaction-copy">
-                            <strong>Existencias agregadas</strong>
+                            <ArrowUpDown size={13}/></i><span className="transaction-copy">
+                            <strong>Actualización de inventario</strong>
                             <small>{transaction.item_count} {transaction.item_count === 1 ? "ingrediente" : "ingredientes"} · {transaction.actor_name}</small>
                         </span><time title={date.toLocaleString("es-SV")}>{date.toLocaleDateString("es-SV", {
                             day: "2-digit", month: "short"
                         })} · {date.toLocaleTimeString("es-SV", {hour: "2-digit", minute: "2-digit"})}</time>
                         <ChevronRight size={16}/>
                     </button>;
-                }) : <div className="activity-empty"><Package size={22}/><span>Aún no se han agregado existencias.</span></div>}
+                }) : <div className="activity-empty"><Package size={22}/><span>Aún no se han registrado actualizaciones.</span></div>}
         </div>
         {total > pageSize && <div className="activity-pagination" onClick={(event) => event.stopPropagation()}>
             <button disabled={page === 0 || loading} onClick={() => setPage((current) => current - 1)}
@@ -571,17 +572,20 @@ function InventoryTransactionDialog({transaction, onClose}) {
                  role="dialog" aria-modal="true" aria-label="Detalle de transacción">
             <button className="icon-btn modal-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>
             <span className="eyebrow">ACTIVIDAD DE INVENTARIO</span>
-            <h2>Existencias agregadas</h2>
+            <h2>Actualización de inventario</h2>
             <p>{transaction.actor_name} · {date.toLocaleString("es-SV", {
                 dateStyle: "medium", timeStyle: "short"
             })}</p>
             <div className="table-wrap transaction-detail-table"><table><thead><tr>
-                <th>Ingrediente</th><th>Anterior</th><th>Agregado</th><th>Nuevo nivel</th>
+                <th>Ingrediente</th><th>Anterior</th><th>Cambio</th><th>Nuevo nivel</th><th>Nota</th>
             </tr></thead><tbody>{transaction.items.map((movement) => <tr key={movement.id}>
                 <td><strong>{movement.item?.name ?? "Ingrediente"}</strong><small>{movement.item?.sku || "Sin SKU"}</small></td>
                 <td>{movement.quantity_before == null ? "—" : <>{Number(movement.quantity_before).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, movement.quantity_before)}</>}</td>
-                <td><span className="addition-pill">+{Number(movement.quantity_delta).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, movement.quantity_delta)}</span></td>
+                <td><span className={Number(movement.quantity_delta) > 0 ? "addition-pill" : "subtraction-pill"}>
+                    {Number(movement.quantity_delta) > 0 ? "+" : ""}{Number(movement.quantity_delta).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, Math.abs(Number(movement.quantity_delta)))}
+                </span></td>
                 <td>{movement.quantity_after == null ? "—" : <strong>{Number(movement.quantity_after).toLocaleString("es-SV")} {quantityUnitLabel(movement.item?.base_unit, movement.quantity_after)}</strong>}</td>
+                <td className="transaction-note">{movement.note || "Sin nota"}</td>
             </tr>)}</tbody></table></div>
             <div className="dialog-actions"><button className="primary-btn" onClick={onClose}>Cerrar detalle</button></div>
         </section>

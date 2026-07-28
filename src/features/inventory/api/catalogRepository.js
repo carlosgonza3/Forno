@@ -42,13 +42,14 @@ export async function loadCatalog() {
   };
 }
 
-export async function addInventoryExistences(entries) {
+export async function setInventoryExistences(entries) {
   const client = requireClient();
-  const additions = entries.map((entry) => ({
+  const updates = entries.map((entry) => ({
     item_id: entry.id,
-    quantity: Number(entry.increment),
+    new_quantity: Number(entry.newQuantity),
+    note: entry.note?.trim() || null,
   }));
-  const result = await client.rpc("add_inventory_existences", { additions });
+  const result = await client.rpc("set_inventory_existences", { updates });
   throwIfError(result.error);
   return result.data ?? [];
 }
@@ -71,7 +72,7 @@ export async function loadInventoryAdditionTransactions({ page = 0, pageSize = 5
   const transactionIds = transactions.map((transaction) => transaction.id);
   const movementsResult = await client
     .from("stock_movements")
-    .select("id, source_id, item_id, quantity_delta, quantity_before, quantity_after, created_at, item:inventory_items(name, base_unit, sku)")
+    .select("id, source_id, item_id, quantity_delta, quantity_before, quantity_after, note, created_at, item:inventory_items(name, base_unit, sku)")
     .in("source_id", transactionIds)
     .order("created_at", { ascending: true });
   throwIfError(movementsResult.error);
