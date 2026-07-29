@@ -247,7 +247,7 @@ export default function ShoppingPage() {
     <div className="shopping-layout shopping-workspace">
         <div className="panel shopping-main">
             <div className="shopping-heading">
-                <div><span className="eyebrow">COMPRAS</span><h2>Ingredientes bajo el punto de reorden</h2>
+                <div><span className="eyebrow">COMPRAS</span><h2>Ingredientes en o bajo el punto de reorden</h2>
                     <p>Las cantidades sugeridas completan la existencia actual hasta el nivel ideal.</p></div>
                 <button className="secondary-btn" onClick={refresh} disabled={loading}>
                     <RefreshCw size={16} className={loading ? "spinning" : ""}/>Actualizar
@@ -276,7 +276,7 @@ export default function ShoppingPage() {
             {success && <div className="catalog-message success">{success}</div>}
             <div className="shopping-results-bar"><span><strong>{filteredItems.length}</strong>
                 {filteredItems.length === 1 ? " ingrediente encontrado" : " ingredientes encontrados"}</span>
-                <span>Solo se muestran existencias bajo el punto de reorden.</span></div>
+                </div>
             {loading ? <div className="shopping-state"><div className="state-spinner"/>Cargando lista de compras…</div>
                 : groups.some((group) => group.items.length) ? <div className="shopping-groups">
                     {groups.filter((group) => group.items.length).map((group) => {

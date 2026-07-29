@@ -30,10 +30,14 @@ describe("shopping model", () => {
             item(),
             item({id: "equal", quantity: 5}),
             item({id: "inactive", active: false}),
-            item({id: "unconfigured", reorder_point: 0}),
+            item({id: "zero-reorder", quantity: 0, reorder_point: 0}),
+            item({id: "above-reorder", quantity: 6}),
+            item({id: "no-purchase-needed", quantity: 0, par_level: 0, reorder_point: 0}),
         ]);
-        expect(items.map((entry) => entry.id)).toEqual(["item-1"]);
+        expect(items.map((entry) => entry.id)).toEqual(["item-1", "equal", "zero-reorder"]);
         expect(items[0].purchaseQuantity).toBe(8);
+        expect(items[1].purchaseQuantity).toBe(5);
+        expect(items[2].purchaseQuantity).toBe(10);
     });
 
     it("applies persisted team decisions", () => {

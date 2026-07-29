@@ -7,8 +7,8 @@ export function buildShoppingItems(items = [], decisions = [], pendingItemIds = 
   const pendingItems = new Set(pendingItemIds);
   return items
     .filter((item) => item.active
-      && Number(item.reorder_point) > 0
-      && Number(item.quantity) < Number(item.reorder_point)
+      && Number(item.quantity) <= Number(item.reorder_point)
+      && suggestedPurchaseQuantity(item) > 0
       && !pendingItems.has(item.id))
     .map((item) => {
       const decision = decisionsByItem.get(item.id);
