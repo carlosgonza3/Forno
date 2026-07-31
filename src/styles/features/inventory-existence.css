@@ -1,0 +1,394 @@
+/* Inventory existence entry */
+.catalog-heading-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 10px
+}
+
+.existence-entry-button {
+    min-height: 44px;
+    padding-inline: 18px
+}
+
+.existence-backdrop {
+    padding: 28px
+}
+
+.existence-dialog {
+    width: min(1120px, 100%);
+    height: min(820px, calc(100vh - 56px));
+    padding: 0;
+    text-align: left;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column
+}
+
+.existence-dialog-head {
+    padding: 28px 34px 20px;
+    border-bottom: 1px solid var(--line)
+}
+
+.existence-dialog-head h2 {
+    margin: 5px 0 4px
+}
+
+.existence-dialog-head > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px
+}
+
+.existence-steps {
+    position: absolute;
+    top: 34px;
+    right: 72px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #9a9189;
+    font-size: 10px;
+    font-weight: 700
+}
+
+.existence-steps span {
+    display: flex;
+    align-items: center;
+    gap: 6px
+}
+
+.existence-steps i {
+    width: 23px;
+    height: 23px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #eee9e2;
+    font-style: normal
+}
+
+.existence-steps span.active {
+    color: var(--accent-text)
+}
+
+.existence-steps span.active i {
+    color: #fff;
+    background: var(--accent)
+}
+
+.existence-steps b {
+    width: 34px;
+    height: 1px;
+    background: var(--line)
+}
+
+.existence-tools {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) 220px 220px;
+    gap: 10px;
+    padding: 15px 34px;
+    background: #faf7f2;
+    border-bottom: 1px solid var(--line)
+}
+
+.existence-tools .search-box {
+    width: 100%;
+    height: 46px;
+    background: var(--paper)
+}
+
+.existence-tools .smart-view-select {
+    min-width: 0;
+    background: var(--paper)
+}
+
+.existence-table-stage,
+.existence-review {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 18px 34px
+}
+
+.existence-group {
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden
+}
+
+.existence-group > .inventory-group-head {
+    border-radius: 0
+}
+
+.existence-group .table-wrap {
+    border: 0;
+    border-radius: 0
+}
+
+.existence-table table {
+    min-width: 720px
+}
+
+.existence-table th:nth-child(2),
+.existence-table td:nth-child(2) {
+    width: 120px;
+    text-align: right
+}
+
+.existence-table th:nth-child(3),
+.existence-table td:nth-child(3) {
+    width: 130px
+}
+
+.existence-table th:last-child,
+.existence-table td:last-child {
+    width: 240px
+}
+
+.existence-table tr.edited-row td {
+    background: #fff9f2
+}
+
+.existence-table tr.edited-row td:first-child {
+    box-shadow: inset 3px 0 var(--accent)
+}
+
+.increment-field {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    border: 1px solid #d8d0c6;
+    border-radius: 8px;
+    background: var(--paper);
+    overflow: hidden;
+    color: var(--accent)
+}
+
+.increment-field > svg {
+    margin-left: 10px;
+    flex: 0 0 auto
+}
+
+.increment-field input {
+    width: 70px;
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    padding: 0 8px;
+    background: transparent;
+    text-align: right;
+    font-weight: 700
+}
+
+.increment-field span {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    background: #f3eee7;
+    color: var(--muted);
+    font-size: 10px
+}
+
+.increment-field:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring)
+}
+
+.existence-dialog-footer {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 34px;
+    border-top: 1px solid var(--line);
+    background: #fffdf9
+}
+
+.existence-dialog-footer > span {
+    color: var(--muted);
+    font-size: 11px
+}
+
+.existence-dialog-footer > div {
+    display: flex;
+    gap: 9px
+}
+
+.existence-dialog-footer .primary-btn {
+    min-width: 150px
+}
+
+.existence-review-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid #cfe0d3;
+    border-radius: 10px;
+    background: #edf5ef;
+    color: #426f4d
+}
+
+.existence-review-summary > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px
+}
+
+.existence-review-summary strong {
+    font-size: 12px
+}
+
+.existence-review-summary span {
+    font-size: 10px
+}
+
+.existence-review .table-wrap table {
+    min-width: 720px
+}
+
+.review-sku {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted)
+}
+
+.addition-pill {
+    display: inline-flex;
+    padding: 5px 8px;
+    border-radius: 14px;
+    background: #e8f0e8;
+    color: #4b7856;
+    font-weight: 700;
+    white-space: nowrap
+}
+
+.subtraction-pill {
+    display: inline-flex;
+    padding: 5px 8px;
+    border-radius: 14px;
+    background: #f5e8e6;
+    color: #965247;
+    font-weight: 700;
+    white-space: nowrap
+}
+
+.activity-loading,
+.activity-empty {
+    min-height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    color: var(--muted);
+    font-size: 10px
+}
+
+.activity-loading .state-spinner {
+    width: 18px;
+    height: 18px
+}
+
+@media (max-width: 760px) {
+    .catalog-heading-actions {
+        width: 100%
+    }
+
+    .catalog-heading-actions > button {
+        flex: 1
+    }
+
+    .existence-backdrop {
+        padding: 0
+    }
+
+    .existence-dialog {
+        width: 100%;
+        height: 100vh;
+        max-height: none;
+        border-radius: 0
+    }
+
+    .existence-dialog-head {
+        padding: 22px 20px 16px
+    }
+
+    .existence-dialog-head > p {
+        padding-right: 20px
+    }
+
+    .existence-steps {
+        position: static;
+        margin-top: 14px
+    }
+
+    .existence-tools {
+        grid-template-columns: 1fr;
+        padding: 12px 20px
+    }
+
+    .existence-table-stage,
+    .existence-review {
+        padding: 12px 20px
+    }
+
+    .existence-dialog-footer {
+        padding: 10px 20px
+    }
+
+    .existence-dialog-footer > span {
+        display: none
+    }
+
+    .existence-dialog-footer > div {
+        width: 100%
+    }
+
+    .existence-dialog-footer button {
+        flex: 1
+    }
+}
+
+@media (max-width: 440px) {
+    .stats-grid {
+        grid-template-columns: 1fr
+    }
+
+    .stat-card {
+        min-height: 86px;
+        align-items: center
+    }
+
+    .stat-meta > strong {
+        font-size: 18px
+    }
+
+    .chart-panel {
+        padding-left: 8px;
+        padding-right: 8px
+    }
+
+    .bar-chart {
+        padding-left: 0;
+        padding-right: 0
+    }
+
+    .prep-card {
+        align-items: flex-start;
+        flex-wrap: wrap
+    }
+
+    .counter {
+        margin-left: 57px
+    }
+
+    .restaurant-pill {
+        margin-top: 20px
+    }
+}
+

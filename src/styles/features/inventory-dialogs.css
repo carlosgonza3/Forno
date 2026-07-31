@@ -1,0 +1,457 @@
+/* Existence modal layout overrides belong last so the shared modal/table rules cannot constrain it. */
+.modal-backdrop.existence-backdrop {
+    align-items: center;
+    justify-items: center;
+    padding: 24px
+}
+
+.modal.existence-dialog {
+    width: min(1600px, calc(100vw - 48px));
+    max-width: none;
+    height: calc(100dvh - 48px);
+    max-height: 920px;
+    min-height: 560px;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-align: left
+}
+
+.modal.existence-dialog .existence-dialog-head,
+.modal.existence-dialog .existence-tools,
+.modal.existence-dialog .existence-dialog-footer {
+    flex: 0 0 auto
+}
+
+.modal.existence-dialog .existence-dialog-head {
+    position: relative
+}
+
+.modal.existence-dialog .existence-tools {
+    grid-template-columns: minmax(300px, 1fr) minmax(210px, 280px) minmax(210px, 280px)
+}
+
+.modal.existence-dialog .existence-table-stage,
+.modal.existence-dialog .existence-review {
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable
+}
+
+.modal.existence-dialog .existence-group {
+    min-width: 1100px
+}
+
+.modal.existence-dialog .existence-table {
+    width: 100%;
+    overflow: visible
+}
+
+.modal.existence-dialog .existence-table table {
+    width: 100%;
+    min-width: 1100px;
+    table-layout: fixed
+}
+
+.modal.existence-dialog .existence-table th {
+    position: sticky;
+    top: 0;
+    z-index: 3
+}
+
+.modal.existence-dialog .existence-table th:first-child,
+.modal.existence-dialog .existence-table td:first-child {
+    width: 29%
+}
+
+.modal.existence-dialog .existence-table th:nth-child(2),
+.modal.existence-dialog .existence-table td:nth-child(2) {
+    width: 11%;
+    text-align: right
+}
+
+.modal.existence-dialog .existence-table th:nth-child(3),
+.modal.existence-dialog .existence-table td:nth-child(3) {
+    width: 12%
+}
+
+.modal.existence-dialog .existence-table th:nth-child(4),
+.modal.existence-dialog .existence-table td:nth-child(4) {
+    width: 25%
+}
+
+.modal.existence-dialog .existence-table th:nth-child(5),
+.modal.existence-dialog .existence-table td:nth-child(5) {
+    width: 23%
+}
+
+.modal.existence-dialog .increment-field {
+    width: 100%;
+    min-width: 190px;
+    height: 44px;
+    display: grid;
+    grid-template-columns: auto minmax(64px, 1fr) auto;
+    padding: 0;
+    border: 1px solid #d8cdc3;
+    border-radius: 10px;
+    background: #fffdf9;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65);
+    color: var(--ink)
+}
+
+.modal.existence-dialog .increment-controls {
+    align-self: stretch;
+    display: flex;
+    padding: 0;
+    border-right: 1px solid var(--line);
+    background: #f7f0ea
+}
+
+.modal.existence-dialog .increment-prefix {
+    align-self: stretch;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    width: 42px;
+    border-right: 1px solid var(--line);
+    background: #f7f0ea;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background .15s, color .15s
+}
+
+.modal.existence-dialog .increment-prefix:last-child {
+    border-right: 0
+}
+
+.modal.existence-dialog .increment-prefix:hover {
+    background: #eee1d7;
+    color: var(--accent-hover)
+}
+
+.modal.existence-dialog .increment-prefix:active {
+    transform: translateY(1px)
+}
+
+.modal.existence-dialog .increment-prefix:disabled {
+    cursor: not-allowed;
+    opacity: .38
+}
+
+.modal.existence-dialog .increment-field input {
+    width: 100%;
+    min-width: 0;
+    padding: 0 12px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 800;
+    text-align: right;
+    font-variant-numeric: tabular-nums
+}
+
+.modal.existence-dialog .increment-field input::placeholder {
+    color: #aaa098;
+    font-weight: 600
+}
+
+.modal.existence-dialog .increment-unit {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    max-width: 120px;
+    padding: 0 12px;
+    overflow: hidden;
+    border-left: 1px solid var(--line);
+    background: #f7f3ed;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.modal.existence-dialog .increment-field:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring)
+}
+
+.modal.existence-dialog .adjustment-note-input {
+    width: 100%;
+    height: 44px;
+    min-width: 190px;
+    padding: 0 12px;
+    border: 1px solid #d8cdc3;
+    border-radius: 10px;
+    outline: 0;
+    background: #fffdf9;
+    color: var(--ink);
+    font-size: 12px
+}
+
+.modal.existence-dialog .adjustment-note-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring)
+}
+
+.modal.existence-dialog .adjustment-note-input::placeholder {
+    color: #aaa098
+}
+
+html[data-theme="dark"] .modal.existence-dialog .increment-field {
+    border-color: var(--line);
+    background: #241d1a;
+    box-shadow: none
+}
+
+html[data-theme="dark"] .modal.existence-dialog .adjustment-note-input {
+    border-color: var(--line);
+    background: #241d1a;
+    color: var(--ink)
+}
+
+html[data-theme="dark"] .modal.existence-dialog .increment-prefix,
+html[data-theme="dark"] .modal.existence-dialog .increment-unit {
+    border-color: var(--line);
+    background: #302723
+}
+
+html[data-theme="dark"] .modal.existence-dialog .increment-controls {
+    border-color: var(--line);
+    background: #302723
+}
+
+html[data-theme="dark"] .modal.existence-dialog .increment-prefix:hover {
+    background: #3b2e29;
+    color: #e09584
+}
+
+/* Cool blue marks changed inventory without competing with the app's action accent. */
+.modal.existence-dialog .existence-table tr.edited-row td {
+    background: #edf6f7
+}
+
+.modal.existence-dialog .existence-table tr.edited-row td:first-child {
+    box-shadow: inset 4px 0 #557b83
+}
+
+.modal.existence-dialog .existence-table tr.edited-row .increment-field {
+    border-color: #8eb0b6;
+    background: #f8fcfc
+}
+
+.modal.existence-dialog .existence-table tr.edited-row .increment-prefix {
+    background: #dcebed;
+    color: #426d75
+}
+
+.modal.existence-dialog .existence-table tr.edited-row .increment-controls {
+    border-color: #b8d0d4;
+    background: #dcebed
+}
+
+.modal.existence-dialog .existence-table tr.edited-row .increment-field:focus-within {
+    border-color: #557b83;
+    box-shadow: 0 0 0 3px rgba(85, 123, 131, .16)
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-tools {
+    border-color: var(--line);
+    background: #211b18
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-dialog-footer {
+    border-color: var(--line);
+    background: #1d1815
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-steps i {
+    background: #3a302b;
+    color: #b6aaa2
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-steps span.active i {
+    background: var(--accent);
+    color: #fff
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-table tr.edited-row td {
+    border-color: #33474a;
+    background: #203033
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-table tr.edited-row td:first-child {
+    box-shadow: inset 4px 0 #77a8b1
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-table tr.edited-row .increment-field {
+    border-color: #52757c;
+    background: #172629
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-table tr.edited-row .increment-prefix {
+    border-color: #405b60;
+    background: #294044;
+    color: #9bc5cc
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-table tr.edited-row .increment-controls {
+    border-color: #405b60;
+    background: #294044
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-table tr.edited-row .increment-unit {
+    border-color: #405b60;
+    background: #25383c;
+    color: #b6c8ca
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-review-summary {
+    border-color: #3f6148;
+    background: #22352a;
+    color: #9dc5a6
+}
+
+html[data-theme="dark"] .modal.existence-dialog .addition-pill {
+    background: #263e2d;
+    color: #a8cfb0
+}
+
+html[data-theme="dark"] .modal.existence-dialog .subtraction-pill {
+    background: #462a28;
+    color: #e5aaa2
+}
+
+.adjustment-note-review,
+.transaction-note {
+    max-width: 240px;
+    color: var(--muted);
+    line-height: 1.45;
+    overflow-wrap: anywhere
+}
+
+.discard-warning-backdrop {
+    z-index: 120;
+    background: rgba(24, 18, 15, .74)
+}
+
+.modal.discard-warning-dialog {
+    width: min(440px, calc(100vw - 32px));
+    padding: 34px;
+    text-align: left
+}
+
+.discard-warning-icon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 17px;
+    border-radius: 13px;
+    background: #f8e8d1;
+    color: #a56b25
+}
+
+.modal.discard-warning-dialog h2 {
+    margin: 7px 0
+}
+
+.modal.discard-warning-dialog > p {
+    max-width: none;
+    margin: 0 0 24px;
+    text-align: left;
+    font-size: 11px
+}
+
+.discard-warning-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px
+}
+
+.danger-btn {
+    min-height: 39px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    border: 1px solid #a83d32;
+    border-radius: 8px;
+    background: #a83d32;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700
+}
+
+.danger-btn:hover {
+    border-color: #8d3028;
+    background: #8d3028
+}
+
+html[data-theme="dark"] .discard-warning-backdrop {
+    background: rgba(5, 3, 2, .82)
+}
+
+html[data-theme="dark"] .discard-warning-icon {
+    background: #3e3020;
+    color: #dbad68
+}
+
+html[data-theme="dark"] .danger-btn {
+    border-color: #a74f43;
+    background: #923d34
+}
+
+html[data-theme="dark"] .danger-btn:hover {
+    border-color: #c06254;
+    background: #a74a3f
+}
+
+@media (max-width: 520px) {
+    .modal.discard-warning-dialog {
+        padding: 28px 22px
+    }
+
+    .discard-warning-actions {
+        flex-direction: column-reverse
+    }
+
+    .discard-warning-actions button {
+        width: 100%
+    }
+}
+
+@media (max-width: 760px) {
+    .modal-backdrop.existence-backdrop {
+        padding: 0
+    }
+
+    .modal.existence-dialog {
+        width: 100vw;
+        height: 100dvh;
+        min-height: 0;
+        max-height: none;
+        border-radius: 0
+    }
+
+    .modal.existence-dialog .existence-tools {
+        grid-template-columns: 1fr
+    }
+
+    .modal.existence-dialog .existence-group {
+        min-width: 720px
+    }
+
+    .modal.existence-dialog .existence-table table {
+        min-width: 720px
+    }
+}
+

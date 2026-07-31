@@ -1,0 +1,470 @@
+.sidebar {
+    color: #f4eae0;
+    background: linear-gradient(180deg, #651f1a 0%, #491614 100%)
+}
+
+.logo-mark {
+    width: 48px;
+    height: 48px;
+    color: #f6e9dc;
+    background: rgba(255, 255, 255, .055);
+    border-color: rgba(255, 244, 232, .24)
+}
+
+.logo-sub {
+    font-size: 6px;
+    letter-spacing: .15em;
+    color: #d6b6aa
+}
+
+.forno-fox {
+    display: block;
+    object-fit: contain
+}
+
+
+.rest-avatar {
+    background: #f0dfcd;
+    color: #74271f
+}
+
+.restaurant-pill span,
+.side-card span {
+    color: #c8a99f
+}
+
+.nav-label {
+    color: #bd9186
+}
+
+.nav-item {
+    color: #d5b8ae
+}
+
+.nav-item.active {
+    color: #fffaf3;
+    background: rgba(255, 244, 232, .13);
+    box-shadow: inset 3px 0 #efcfb4
+}
+
+.nav-item b,
+.side-card-icon {
+    background: #f0dfcd;
+    color: #74271f
+}
+
+.side-card {
+    background: linear-gradient(135deg, rgba(244, 214, 190, .13), rgba(255, 255, 255, .03));
+    border-color: rgba(255, 255, 255, .1)
+}
+
+.user-avatar {
+    background: #efe1d3;
+    color: #67201b
+}
+
+.user-card span {
+    color: #c59d93
+}
+
+.topbar {
+    background: rgba(243, 238, 230, .95);
+    border-color: #e2d9cf
+}
+
+.primary-btn {
+    background: var(--accent);
+    box-shadow: 0 4px 12px rgba(104, 26, 21, .17)
+}
+
+.primary-btn:hover {
+    background: var(--accent-hover)
+}
+
+.text-btn {
+    color: var(--accent-text)
+}
+
+.wide-soft-btn {
+    background: var(--accent-soft);
+    color: var(--accent-text)
+}
+
+.service-banner {
+    min-height: 118px;
+    margin-bottom: 15px;
+    padding: 21px 25px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border-radius: 13px;
+    color: #fff8ef;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 82% 10%, rgba(244, 197, 148, .17), transparent 27%), linear-gradient(110deg, #641d18, #8a2b22 60%, #531613);
+    box-shadow: 0 11px 30px rgba(74, 20, 16, .12)
+}
+
+.service-banner:after {
+    content: "";
+    position: absolute;
+    right: 16%;
+    top: -80px;
+    width: 1px;
+    height: 260px;
+    background: rgba(255, 255, 255, .13);
+    transform: rotate(25deg);
+    box-shadow: 42px 0 rgba(255, 255, 255, .06)
+}
+
+.banner-mark {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 245, 232, .3);
+    color: #f6e5d3;
+    background: rgba(255, 255, 255, .05)
+}
+
+.banner-mark .forno-fox {
+    width: 82%;
+    height: 82%
+}
+
+.service-banner > div:nth-child(2) {
+    flex: 1;
+    z-index: 1
+}
+
+.service-banner > div:nth-child(2) > span {
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .2em;
+    color: #e6bfb0
+}
+
+.service-banner h2 {
+    font: 800 21px Manrope;
+    margin: 5px 0 2px;
+    letter-spacing: -.03em
+}
+
+.service-banner p {
+    font-size: 10px;
+    margin: 0;
+    color: #dfc8bf
+}
+
+.banner-status {
+    z-index: 1;
+    min-width: 145px;
+    border-left: 1px solid rgba(255, 255, 255, .16);
+    padding: 8px 0 8px 22px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 2px 7px
+}
+
+.banner-status i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #efbd82;
+    box-shadow: 0 0 0 4px rgba(239, 189, 130, .12)
+}
+
+.banner-status span {
+    font-size: 8px;
+    color: #d9bdb4
+}
+
+.banner-status strong {
+    grid-column: 2;
+    font: 700 16px Manrope
+}
+
+.recipe-visual {
+    background: linear-gradient(135deg, #e9d4c1, #cfa37f)
+}
+
+.rv-1 {
+    background: linear-gradient(135deg, #d8b39a, #9e5942)
+}
+
+.rv-2 {
+    background: linear-gradient(135deg, #d1a28f, #8b392f)
+}
+
+.rv-3 {
+    background: linear-gradient(135deg, #e7d8c2, #b4966f)
+}
+
+/* Readability scale: preserve density while making the system comfortable at 100% zoom. */
+.sidebar {
+    width: 270px;
+    padding: 29px 20px 20px
+}
+
+.main {
+    margin-left: 270px
+}
+
+.topbar {
+    height: 102px;
+    padding: 0 40px
+}
+
+.content {
+    max-width: 1680px;
+    padding: 30px 40px 48px
+}
+
+.logo-name {
+    font-size: 19px
+}
+
+.logo-sub {
+    font-size: 7px
+}
+
+.restaurant-pill strong,
+.side-card strong {
+    font-size: 13px
+}
+
+.restaurant-pill span,
+.side-card span,
+.user-card span {
+    font-size: 10px
+}
+
+.nav-label {
+    margin-top: 2rem;
+    font-size: 10px
+}
+
+.nav-item {
+    height: 46px;
+    font-size: 14px
+}
+
+.user-card strong {
+    font-size: 12px
+}
+
+.page-title h1 {
+    font-size: 25px
+}
+
+.page-title p {
+    font-size: 14px
+}
+
+.primary-btn,
+.secondary-btn,
+.select-btn,
+.wide-soft-btn,
+.text-btn {
+    font-size: 13px
+}
+
+.primary-btn {
+    height: 43px;
+    padding-inline: 18px
+}
+
+.secondary-btn,
+.select-btn {
+    height: 42px
+}
+
+.service-banner {
+    min-height: 134px;
+    padding: 24px 28px;
+    gap: 21px
+}
+
+.banner-mark {
+    width: 78px;
+    height: 78px
+}
+
+.service-banner > div:nth-child(2) > span {
+    font-size: 9px
+}
+
+.service-banner h2 {
+    font-size: 25px
+}
+
+.service-banner p {
+    font-size: 12px
+}
+
+.banner-status span {
+    font-size: 10px
+}
+
+.banner-status strong {
+    font-size: 19px
+}
+
+.stats-grid,
+.dashboard-grid {
+    gap: 18px
+}
+
+.stats-grid {
+    margin-bottom: 18px
+}
+
+.stat-card {
+    min-height: 130px;
+    padding: 22px;
+    gap: 16px
+}
+
+.stat-icon {
+    width: 43px;
+    height: 43px
+}
+
+.stat-meta > span {
+    font-size: 13px
+}
+
+.stat-meta > strong {
+    font-size: 25px;
+    margin: 7px 0 5px
+}
+
+.stat-meta p {
+    font-size: 11px
+}
+
+.panel {
+    padding: 23px
+}
+
+.panel-head h2 {
+    font-size: 16px
+}
+
+.panel-head p {
+    font-size: 12px
+}
+
+.chart-top strong {
+    font-size: 29px
+}
+
+.chart-top span,
+.bar span {
+    font-size: 11px
+}
+
+.bar-item small {
+    font-size: 11px
+}
+
+.attention-info strong,
+.prep-progress > div:nth-child(2) strong {
+    font-size: 13px
+}
+
+.attention-info span,
+.prep-progress > div:nth-child(2) span,
+.timeline p span,
+.timeline time {
+    font-size: 11px
+}
+
+.status {
+    font-size: 11px;
+    padding: 5px 9px
+}
+
+.mini-tasks span,
+.mini-tasks b,
+.timeline p strong {
+    font-size: 11px
+}
+
+.table-tools {
+    padding: 20px
+}
+
+.search-box {
+    width: 290px;
+    height: 42px
+}
+
+.search-box input,
+.inventory-summary {
+    font-size: 12px
+}
+
+.inventory-summary {
+    height: 48px
+}
+
+.filter-scroll button {
+    font-size: 12px
+}
+
+.table-wrap th {
+    padding: 14px 16px;
+    font-size: 11px
+}
+
+.table-wrap td {
+    padding: 15px 16px;
+    font-size: 12px
+}
+
+.product-cell strong {
+    font-size: 13px
+}
+
+.product-cell span,
+.category-tag {
+    font-size: 10px
+}
+
+.prep-card h3,
+.recipe-stats strong,
+.receipt-row strong {
+    font-size: 13px
+}
+
+.prep-card p,
+.prep-card-copy > span,
+.recipe-stats span,
+.recipe-footer span,
+.shop-name span,
+.shop-qty span,
+.receipt-row div span {
+    font-size: 10px
+}
+
+.prep-ticket p,
+.ticket-total,
+.summary-line,
+.shop-name strong,
+.shop-qty strong {
+    font-size: 12px
+}
+
+.recipe-body h2 {
+    font-size: 17px
+}
+
+.modal > p,
+.modal-drop strong,
+.scan-summary {
+    font-size: 12px
+}
+

@@ -1,0 +1,304 @@
+@media (min-width: 761px) {
+    .sidebar.collapsed {
+        width: 82px;
+        padding-inline: 12px
+    }
+
+    .main.sidebar-collapsed {
+        margin-left: 82px
+    }
+
+    .sidebar.collapsed .side-head {
+        justify-content: center;
+        padding-inline: 0
+    }
+
+    .sidebar.collapsed .logo-wrap > div:last-child,
+    .sidebar.collapsed .restaurant-pill > div:nth-child(2),
+    .sidebar.collapsed .restaurant-pill > svg,
+    .sidebar.collapsed .nav-item > span,
+    .sidebar.collapsed .side-card > div:nth-child(2),
+    .sidebar.collapsed .side-card > svg,
+    .sidebar.collapsed .user-card > div:nth-child(2),
+    .sidebar.collapsed .signout-button {
+        display: none
+    }
+
+    .sidebar.collapsed .restaurant-pill {
+        justify-content: center;
+        padding: 8px;
+        margin-block: 27px 19px
+    }
+
+    .sidebar.collapsed .nav-label {
+        height: 1px;
+        padding: 0;
+        margin: 12px 10px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, .12);
+        color: transparent
+    }
+
+    .sidebar.collapsed .nav-label.bottom {
+        margin-top: 20px
+    }
+
+    .sidebar.collapsed .nav-item {
+        position: relative;
+        justify-content: center;
+        width: 100%;
+        padding: 0;
+        gap: 0
+    }
+
+    .sidebar.collapsed .nav-item.nested {
+        height: 38px;
+        margin: 0 0 4px;
+        color: #c9a89e
+    }
+
+    .sidebar.collapsed .nav-item.nested::before {
+        top: -4px;
+        left: 7px;
+        width: 7px;
+        height: 20px
+    }
+
+    .sidebar.collapsed .nav-item b {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        min-width: 7px;
+        width: 7px;
+        height: 7px;
+        padding: 0;
+        overflow: hidden;
+        color: transparent
+    }
+
+    .sidebar.collapsed .side-card {
+        justify-content: center;
+        padding-inline: 0
+    }
+
+    .sidebar.collapsed .user-card {
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+        padding-inline: 0
+    }
+}
+
+@media (max-width: 1100px) {
+    .stats-grid {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr
+    }
+
+    .prep-layout,
+    .shopping-layout {
+        grid-template-columns: 1fr
+    }
+
+    .prep-ticket,
+    .order-summary {
+        min-height: auto
+    }
+
+    .recipe-grid {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .filter-scroll {
+        display: none
+    }
+
+    .receipts-layout {
+        grid-template-columns: 1fr
+    }
+}
+
+@media (max-width: 760px) {
+    .sidebar-collapse {
+        display: none
+    }
+
+    .sidebar {
+        transform: translateX(-100%);
+        transition: .25s
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 15px 0 60px rgba(0, 0, 0, .25)
+    }
+
+    .close-side {
+        display: grid !important
+    }
+
+    .side-overlay {
+        position: fixed;
+        z-index: 25;
+        inset: 0;
+        background: rgba(0, 0, 0, .4)
+    }
+
+    .main {
+        margin-left: 0
+    }
+
+    .main.sidebar-collapsed {
+        margin-left: 0
+    }
+
+    .mobile-menu {
+        display: grid;
+        margin-right: 12px
+    }
+
+    .topbar {
+        height: 78px;
+        padding: 0 16px
+    }
+
+    .page-title h1 {
+        font-size: 17px
+    }
+
+    .page-title p {
+        display: none
+    }
+
+    .top-actions .primary-btn span {
+        display: none
+    }
+
+    .top-actions .primary-btn {
+        width: 39px;
+        padding: 0
+    }
+
+    .content {
+        padding: 16px
+    }
+
+    .service-banner {
+        padding: 17px;
+        min-height: 105px
+    }
+
+    .banner-mark {
+        width: 55px;
+        height: 55px
+    }
+
+    .service-banner h2 {
+        font-size: 16px
+    }
+
+    .service-banner p {
+        display: none
+    }
+
+    .banner-status {
+        display: none
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 9px
+    }
+
+    .stat-card {
+        min-height: 105px;
+        padding: 13px;
+        gap: 9px
+    }
+
+    .stat-icon {
+        width: 33px;
+        height: 33px
+    }
+
+    .stat-meta > strong {
+        font-size: 16px
+    }
+
+    .dashboard-grid {
+        gap: 9px
+    }
+
+    .panel {
+        padding: 15px
+    }
+
+    .chart-panel {
+        min-width: 0
+    }
+
+    .bar-chart {
+        gap: 4%
+    }
+
+    .mini-tasks {
+        flex-direction: column
+    }
+
+    .prep-progress {
+        flex-wrap: wrap
+    }
+
+    .time-chip {
+        margin-left: 0
+    }
+
+    .table-tools {
+        flex-wrap: wrap
+    }
+
+    .search-box {
+        width: 100%
+    }
+
+    .table-tools .secondary-btn {
+        flex: 1
+    }
+
+    .table-tools > .primary-btn {
+        flex: 1
+    }
+
+    .inventory-summary span:nth-child(2) {
+        display: none
+    }
+
+    .inventory-summary span:last-child {
+        margin-left: auto
+    }
+
+    .prep-cards,
+    .recipe-grid {
+        grid-template-columns: 1fr
+    }
+
+    .receipt-row {
+        grid-template-columns: 42px 1fr auto
+    }
+
+    .receipt-row > .status {
+        display: none
+    }
+
+    .modal {
+        padding: 28px 20px
+    }
+
+    .recipe-visual {
+        height: 110px
+    }
+}
+

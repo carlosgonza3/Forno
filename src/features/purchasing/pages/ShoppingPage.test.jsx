@@ -5,7 +5,7 @@ import ShoppingPage from "./ShoppingPage";
 const loadShoppingWorkspace = vi.fn();
 const receivePurchaseList = vi.fn();
 
-vi.mock("./shoppingRepository", () => ({
+vi.mock("../api/shoppingRepository", () => ({
     createPurchaseList: vi.fn(),
     loadShoppingWorkspace: (...args) => loadShoppingWorkspace(...args),
     receivePurchaseList: (...args) => receivePurchaseList(...args),
@@ -14,8 +14,8 @@ vi.mock("./shoppingRepository", () => ({
     saveShoppingDecisions: vi.fn(),
 }));
 
-vi.mock("./shoppingCsv", () => ({downloadShoppingCsv: vi.fn()}));
-vi.mock("./shoppingPdf", () => ({downloadShoppingPdf: vi.fn()}));
+vi.mock("../shoppingCsv", () => ({downloadShoppingCsv: vi.fn()}));
+vi.mock("../shoppingPdf", () => ({downloadShoppingPdf: vi.fn()}));
 
 const pendingList = {
     id: "11111111-1111-1111-1111-111111111111",

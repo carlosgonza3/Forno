@@ -24,6 +24,8 @@ npm run check
 
 The repository includes a production workflow that tests and deploys the authenticated operations release whenever `main` is pushed. Production starts on Dashboard and exposes Dashboard, Inventory, Purchases, and appearance/account settings while keeping unfinished prototype modules hidden.
 
+Frontend module boundaries, dependency rules, and stylesheet ownership are documented in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+
 1. Create a GitHub repository and add it as this project's `origin` remote.
 2. Push `main` to GitHub.
 3. In the repository, open **Settings → Pages** and set **Source** to **GitHub Actions**.
