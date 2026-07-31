@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
     AlertTriangle,
     ArchiveRestore,
@@ -9,26 +9,56 @@ import {
     CheckCircle2,
     ChevronDown,
     ChevronRight,
+    ChevronsDownUp,
+    ChevronsUpDown,
     CircleOff,
     Download,
+    Eye,
     FilterX,
     Layers3,
+    Maximize2,
     Minus,
+    Minimize2,
     Pencil,
     Plus,
     RefreshCw,
     Search,
-    ShieldCheck,
-    SlidersHorizontal,
+    Shapes,
+    Smile,
     X,
 } from "lucide-react";
 import {useAuth} from "../../auth/AuthProvider";
+import {
+    Sheet,
+    SheetClose,
+    SheetContent,
+    SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+} from "../../../components/ui/sheet";
+import {Badge} from "../../../components/ui/badge";
+import {Button} from "../../../components/ui/button";
+import {DataTable} from "../../../components/ui/data-table";
+import {InputGroup, InputGroupAddon, InputGroupInput} from "../../../components/ui/input-group";
+import {Popover, PopoverContent, PopoverTrigger} from "../../../components/ui/popover";
+import {
+    Menubar,
+    MenubarContent,
+    MenubarLabel,
+    MenubarMenu,
+    MenubarRadioGroup,
+    MenubarRadioItem,
+    MenubarSeparator,
+    MenubarTrigger,
+} from "../../../components/ui/menubar";
 import {
     setInventoryExistences,
     loadCatalog,
     saveCatalogItem,
     saveSupplier,
     setCatalogItemActive,
+    setCatalogItemIcon,
     setSupplierActive,
 } from "../api/catalogRepository";
 import {
@@ -45,8 +75,15 @@ import {
     DEFAULT_INVENTORY_CSV_COLUMN_KEYS,
     downloadInventoryCsv,
 } from "../inventoryCsv";
+import {
+    IngredientIcon,
+    INGREDIENT_ICON_OPTIONS,
+    ingredientIconOption,
+    searchIngredientIcons,
+} from "../ingredientIcons";
 
 const money = new Intl.NumberFormat("es-SV", {style: "currency", currency: "USD"});
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 const emptyItem = {
     id: null,
     name: "",
@@ -57,11 +94,16 @@ const emptyItem = {
     parLevel: "0",
     reorderPoint: "0",
     unitCost: "0",
+    iconKey: "",
+    iconEmoji: "",
     active: true,
 };
 const emptySupplier = {id: null, name: "", email: "", phone: "", active: true};
 
 function errorMessage(error) {
+    if (error?.code === "ICON_FIELD_UNAVAILABLE") {
+        return "La selección de íconos estará disponible al aplicar la actualización segura de la base de datos.";
+    }
     if (error?.code === "23505") return "Ese nombre o SKU ya existe en el catálogo.";
     if (error?.code === "42501") return "Tu sesión no tiene permiso para registrar esta actualización.";
     if (error?.code === "PGRST202" || error?.code === "42883") {
@@ -76,7 +118,9 @@ function errorMessage(error) {
 export default function CatalogPage() {
     const {role} = useAuth();
     const isAdmin = role === "admin";
-    const [catalog, setCatalog] = useState({items: [], departments: [], suppliers: []});
+    const [catalog, setCatalog] = useState({
+        items: [], departments: [], suppliers: [], iconFieldAvailable: true, emojiFieldAvailable: true,
+    });
     const [tab, setTab] = useState("items");
     const [query, setQuery] = useState("");
     const [departmentId, setDepartmentId] = useState("");
@@ -85,14 +129,15 @@ export default function CatalogPage() {
     const [groupBy, setGroupBy] = useState("none");
     const [sortBy, setSortBy] = useState("name");
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
-    const [optionsOpen, setOptionsOpen] = useState(true);
-    const [includeInactive, setIncludeInactive] = useState(true);
+    const [includeInactive, setIncludeInactive] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [itemDraft, setItemDraft] = useState(null);
     const [supplierDraft, setSupplierDraft] = useState(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [existenceOpen, setExistenceOpen] = useState(false);
+    const [tableExpanded, setTableExpanded] = useState(false);
+    const [savingIconIds, setSavingIconIds] = useState(() => new Set());
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -110,6 +155,20 @@ export default function CatalogPage() {
         refresh();
     }, [refresh]);
 
+    useEffect(() => {
+        if (!tableExpanded) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        function collapseOnEscape(event) {
+            if (event.key === "Escape") setTableExpanded(false);
+        }
+        window.addEventListener("keydown", collapseOnEscape);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener("keydown", collapseOnEscape);
+        };
+    }, [tableExpanded]);
+
     const scopedItems = useMemo(
         () => catalog.items.filter((item) => matchesCatalogItem(item, query, departmentId, includeInactive, supplierId)),
         [catalog.items, departmentId, includeInactive, query, supplierId],
@@ -123,6 +182,8 @@ export default function CatalogPage() {
         sortBy,
     ), [scopedItems, sortBy, stockFilter]);
     const itemGroups = useMemo(() => groupCatalogItems(items, groupBy), [groupBy, items]);
+    const allGroupsExpanded = groupBy !== "none" && itemGroups.length > 0
+        && itemGroups.every((group) => !collapsedGroups.has(group.key));
     const suppliers = useMemo(() => {
         const normalized = query.trim().toLocaleLowerCase("es");
         return catalog.suppliers.filter((supplier) => (
@@ -132,27 +193,14 @@ export default function CatalogPage() {
         ));
     }, [catalog.suppliers, includeInactive, query]);
     const critical = catalog.items.filter((item) => item.active && stockStatus(item).key === "critical").length;
-    const hasItemFilters = Boolean(query || departmentId || supplierId || stockFilter !== "all" || !includeInactive);
+    const hasItemFilters = Boolean(query || departmentId || supplierId || stockFilter !== "all" || includeInactive);
 
     function resetItemFilters() {
         setQuery("");
         setDepartmentId("");
         setSupplierId("");
         setStockFilter("all");
-        setIncludeInactive(true);
-    }
-
-    async function showGlobalInventory() {
-        setQuery("");
-        setDepartmentId("");
-        setSupplierId("");
-        setStockFilter("all");
-        setGroupBy("none");
-        setSortBy("name");
-        setCollapsedGroups(new Set());
-        setIncludeInactive(true);
-        setOptionsOpen(true);
-        await refresh();
+        setIncludeInactive(false);
     }
 
     function toggleGroup(key) {
@@ -162,6 +210,12 @@ export default function CatalogPage() {
             else next.add(key);
             return next;
         });
+    }
+
+    function toggleAllGroups() {
+        setCollapsedGroups(allGroupsExpanded
+            ? new Set(itemGroups.map((group) => group.key))
+            : new Set());
     }
 
     function editItem(item) {
@@ -175,6 +229,8 @@ export default function CatalogPage() {
             parLevel: String(item.par_level),
             reorderPoint: String(item.reorder_point),
             unitCost: String(item.unit_cost),
+            iconKey: item.icon_key ?? "",
+            iconEmoji: item.icon_emoji ?? "",
             active: item.active,
         });
     }
@@ -185,6 +241,31 @@ export default function CatalogPage() {
             await refresh();
         } catch (nextError) {
             setError(errorMessage(nextError));
+        }
+    }
+
+    async function updateItemIcon(item, nextIcon) {
+        if (savingIconIds.has(item.id)) return;
+        setError("");
+        setSavingIconIds((current) => new Set(current).add(item.id));
+        try {
+            await setCatalogItemIcon(item.id, nextIcon);
+            setCatalog((current) => ({
+                ...current,
+                items: current.items.map((currentItem) => currentItem.id === item.id ? {
+                    ...currentItem,
+                    icon_key: nextIcon.iconKey || null,
+                    icon_emoji: nextIcon.iconEmoji || null,
+                } : currentItem),
+            }));
+        } catch (nextError) {
+            setError(errorMessage(nextError));
+        } finally {
+            setSavingIconIds((current) => {
+                const next = new Set(current);
+                next.delete(item.id);
+                return next;
+            });
         }
     }
 
@@ -201,14 +282,9 @@ export default function CatalogPage() {
         <section className="catalog-heading">
             <div><h2>Ingredientes y proveedores</h2></div>
             <div className="catalog-heading-actions">
-                {tab === "items" && <button className="global-view-button catalog-refresh-button"
-                                            onClick={showGlobalInventory} disabled={loading}
-                                            title="Actualizar datos y restablecer la tabla"><RefreshCw size={16}
-                                                className={loading ? "spinning" : ""}/><span><strong>Actualizar</strong><small>Actualizar y restablecer</small></span>
-                </button>}
                 {tab === "items" && <button className="primary-btn existence-entry-button"
                                             onClick={() => setExistenceOpen(true)} disabled={loading}>
-                    <Plus size={17}/><span>Actualizar existencias</span>
+                    <RefreshCw size={17}/><span>Actualizar existencias</span>
                 </button>}
             </div>
         </section>
@@ -222,7 +298,7 @@ export default function CatalogPage() {
             </div>
         </div>
 
-        <div className="panel page-panel catalog-panel">
+        <div className={`panel page-panel catalog-panel ${tableExpanded ? "is-table-expanded" : ""}`}>
             <div className="catalog-panel-head">
                 <div className="catalog-tabs">
                     <button className={tab === "items" ? "active" : ""} onClick={() => {
@@ -233,93 +309,68 @@ export default function CatalogPage() {
                     <button className={tab === "suppliers" ? "active" : ""} onClick={() => {
                         setTab("suppliers");
                         setQuery("");
-                        setOptionsOpen(true);
                     }}>Proveedores
                     </button>
                 </div>
                 <div className="catalog-panel-actions">
-                    <label className="modern-switch catalog-inactive-toggle"><input type="checkbox"
-                                                                                     checked={includeInactive}
-                                                                                     onChange={(event) => setIncludeInactive(event.target.checked)}/><span
-                        className="switch-track"><i/></span><span>Inactivos</span></label>
-                    {isAdmin && <button className="primary-btn catalog-create-button"
-                                        onClick={() => tab === "items" ? setItemDraft({...emptyItem}) : setSupplierDraft({...emptySupplier})}>
-                        <Plus size={17}/> {tab === "items" ? "Ingrediente" : "Proveedor"}</button>}
+                    {isAdmin && tab === "suppliers" && <button className="primary-btn catalog-create-button"
+                        onClick={() => setSupplierDraft({...emptySupplier})}>
+                        <Plus size={17}/> Proveedor</button>}
+                    <button type="button" className="catalog-expand-button"
+                        aria-pressed={tableExpanded}
+                        aria-label={tableExpanded ? "Restaurar vista de tabla" : "Expandir tabla"}
+                        title={tableExpanded ? "Restaurar vista" : "Expandir tabla"}
+                        onClick={() => setTableExpanded((current) => !current)}>
+                        {tableExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+                        <span>{tableExpanded ? "Restaurar" : "Expandir"}</span>
+                    </button>
                 </div>
             </div>
-            <div className="table-tools catalog-tools">
-                <div>
-                    <div className="search-box"><Search size={18}/><input value={query}
-                                                                          onChange={(event) => setQuery(event.target.value)}
-                                                                          placeholder={`Buscar ${tab === "items" ? "ingrediente" : "proveedor"}…`}/>
-                    </div>
-                </div>
-                    {tab === "items" && <button className={`view-options-toggle ${optionsOpen ? "active" : ""}`}
-                                                onClick={() => setOptionsOpen((current) => !current)}>
-                        <SlidersHorizontal size={16}/><span>Opciones</span>{optionsOpen ? <ChevronDown size={14}/> :
-                        <ChevronRight size={14}/>}</button>}
+            {isAdmin && tab === "items" && <div className="catalog-item-create-row">
+                <button className="primary-btn catalog-create-button" onClick={() => setItemDraft({...emptyItem})}>
+                    <Plus size={17}/> Ingrediente
+                </button>
+            </div>}
+            <div className="catalog-data-toolbar">
+                <InputGroup className="search-box"><InputGroupInput value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    aria-label={`Buscar ${tab === "items" ? "ingrediente" : "proveedor"}`}
+                    placeholder={`Buscar ${tab === "items" ? "ingrediente" : "proveedor"}…`}/>
+                    <InputGroupAddon><Search size={18}/></InputGroupAddon>
+                </InputGroup>
+                {tab === "items" ? <InventoryMenubar
+                    departments={catalog.departments}
+                    suppliers={catalog.suppliers.filter((supplier) => supplier.active)}
+                    departmentId={departmentId} onDepartmentChange={setDepartmentId}
+                    supplierId={supplierId} onSupplierChange={setSupplierId}
+                    groupBy={groupBy} onGroupChange={(value) => {
+                        setGroupBy(value);
+                        setCollapsedGroups(new Set());
+                    }}
+                    sortBy={sortBy} onSortChange={setSortBy}
+                    stockFilter={stockFilter} onStockFilterChange={setStockFilter}
+                    includeInactive={includeInactive} onIncludeInactiveChange={setIncludeInactive}
+                    statusCounts={statusCounts} totalCount={scopedItems.length}/>
+                    : <label className="modern-switch catalog-inactive-toggle"><input type="checkbox"
+                        checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)}/>
+                        <span className="switch-track"><i/></span><span>Inactivos</span></label>}
+                {tab === "items" && hasItemFilters && <Button variant="ghost" size="sm"
+                    className="reset-filters" onClick={resetItemFilters}><FilterX size={15}/>Limpiar</Button>}
             </div>
-
-            {tab === "items" && optionsOpen && <>
-                <div className="inventory-options-bar">
-                    <div className="inventory-option-controls">
-                        <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
-                                    options={[{
-                                        value: "",
-                                        label: "Todos"
-                                    }, ...catalog.departments.map((department) => ({
-                                        value: department.id,
-                                        label: department.name
-                                    }))]}/>
-                        <ViewSelect icon={Building2} label="Proveedor" value={supplierId} onChange={setSupplierId}
-                                    options={[{
-                                        value: "",
-                                        label: "Todos"
-                                    }, ...catalog.suppliers.filter((supplier) => supplier.active).map((supplier) => ({
-                                        value: supplier.id,
-                                        label: supplier.name
-                                    }))]}/>
-                        <ViewSelect icon={Layers3} label="Agrupación" value={groupBy} onChange={(value) => {
-                            setGroupBy(value);
-                            setCollapsedGroups(new Set());
-                        }} options={[{value: "department", label: "Por departamento"}, {
-                            value: "supplier",
-                            label: "Por proveedor"
-                        }, {value: "none", label: "Sin agrupar"}]}/>
-                        <ViewSelect icon={ArrowUpDown} label="Orden" value={sortBy} onChange={setSortBy}
-                                    options={[{value: "attention", label: "Atención requerida"}, {
-                                        value: "name",
-                                        label: "Nombre A–Z"
-                                    }, {value: "gap", label: "Mayor faltante"}, {
-                                        value: "stock",
-                                        label: "Menor existencia"
-                                    }]}/>
-                    </div>
-                </div>
-                <div className="stock-filter-row" aria-label="Filtrar por estado">
-                    {[
-                        ["all", "Todos", scopedItems.length],
-                        ["critical", "Críticos", statusCounts.critical],
-                        ["low", "Bajos", statusCounts.low],
-                        ["healthy", "Óptimos", statusCounts.healthy],
-                        ["neutral", "Sin niveles", statusCounts.neutral],
-                    ].map(([key, label, count]) => <button key={key}
-                                                           className={`${stockFilter === key ? "active" : ""} ${key}`}
-                                                           onClick={() => setStockFilter(key)}>
-                        <span/>{label}<b>{count}</b></button>)}
-                    {hasItemFilters &&
-                        <button className="reset-filters" onClick={resetItemFilters}><FilterX size={15}/> Limpiar
-                            filtros</button>}
-                </div>
-            </>}
 
             {tab === "items" && <div className="inventory-results-bar">
                 <span> <strong>{items.length}</strong> de {catalog.items.filter((item) => item.active || includeInactive).length} ingredientes</span>
+                <div>{groupBy !== "none" && itemGroups.length > 0 && <button
+                    className="inventory-groups-toggle" onClick={toggleAllGroups}
+                    aria-label={allGroupsExpanded ? "Contraer todos los grupos" : "Expandir todos los grupos"}>
+                    {allGroupsExpanded ? <ChevronsDownUp size={15}/> : <ChevronsUpDown size={15}/>}
+                    {allGroupsExpanded ? "Contraer todo" : "Expandir todo"}
+                </button>}
                 <button className="inventory-export-button" disabled={loading || items.length === 0}
                         onClick={() => setExportOpen(true)}
                         title="Descargar los resultados visibles con la agrupación y el orden actuales">
                     <Download size={15}/><span>Exportar CSV</span><b>{items.length}</b>
-                </button>
+                </button></div>
             </div>}
 
             {error && <div className="catalog-message error">{error}
@@ -330,7 +381,10 @@ export default function CatalogPage() {
                 <p>Cargando catálogo seguro…</p></div> : tab === "items" ? (
                 <div className="inventory-table-stage"><ItemsExplorer
                     groups={itemGroups} groupBy={groupBy} collapsedGroups={collapsedGroups} onToggleGroup={toggleGroup}
-                    isAdmin={isAdmin} onEdit={editItem} onToggle={toggleItem}/></div>
+                    isAdmin={isAdmin} onEdit={editItem} onToggle={toggleItem}
+                    iconFieldAvailable={catalog.iconFieldAvailable}
+                    emojiFieldAvailable={catalog.emojiFieldAvailable}
+                    savingIconIds={savingIconIds} onIconChange={updateItemIcon}/></div>
             ) : (
                 <SuppliersTable suppliers={suppliers} isAdmin={isAdmin} onEdit={(supplier) => setSupplierDraft({
                     ...supplier,
@@ -341,6 +395,8 @@ export default function CatalogPage() {
         </div>
 
         {itemDraft && <ItemDialog draft={itemDraft} departments={catalog.departments} suppliers={catalog.suppliers}
+                                  iconFieldAvailable={catalog.iconFieldAvailable}
+                                  emojiFieldAvailable={catalog.emojiFieldAvailable}
                                   onClose={() => setItemDraft(null)} onSaved={async () => {
             setItemDraft(null);
             await refresh();
@@ -450,8 +506,11 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
 
             {stage === "entry" ? <>
                 <div className="existence-tools">
-                    <div className="search-box"><Search size={18}/><input value={query}
-                        onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ingrediente…"/></div>
+                    <InputGroup className="search-box"><InputGroupInput value={query}
+                        onChange={(event) => setQuery(event.target.value)} aria-label="Buscar ingrediente"
+                        placeholder="Buscar ingrediente…"/>
+                        <InputGroupAddon><Search size={18}/></InputGroupAddon>
+                    </InputGroup>
                     <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
                         options={[{value: "", label: "Todos"}, ...catalog.departments.map((department) => ({
                             value: department.id, label: department.name
@@ -546,7 +605,8 @@ function ExistenceTable({items, quantities, notes, onQuantity, onNote}) {
         const quantity = value === "" ? Number.NaN : Number(value);
         const changed = Number.isFinite(quantity) && quantity !== Number(item.quantity);
         return <tr key={item.id} className={changed ? "edited-row" : ""}>
-            <td><div className="product-cell"><div className="food-icon"><Boxes size={17}/></div><div>
+            <td><div className="product-cell"><div className="food-icon"><IngredientIcon iconKey={item.icon_key}
+                iconEmoji={item.icon_emoji} size={17}/></div><div>
                 <strong>{item.name}</strong><span>{item.sku || "Sin SKU"}</span></div></div></td>
             <td><strong>{Number(item.quantity).toLocaleString("es-SV")}</strong></td>
             <td>{quantityUnitLabel(item.base_unit, item.quantity)}</td>
@@ -627,20 +687,134 @@ function ViewSelect({icon: Icon, label, value, onChange, options}) {
         key={`${label}-${option.value}`} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
-function ItemsExplorer({groups, groupBy, collapsedGroups, onToggleGroup, isAdmin, onEdit, onToggle}) {
+function InventoryMenubar({
+    departments,
+    suppliers,
+    departmentId,
+    onDepartmentChange,
+    supplierId,
+    onSupplierChange,
+    groupBy,
+    onGroupChange,
+    sortBy,
+    onSortChange,
+    stockFilter,
+    onStockFilterChange,
+    includeInactive,
+    onIncludeInactiveChange,
+    statusCounts,
+    totalCount,
+}) {
+    const departmentOptions = [{value: "", label: "Todos"}, ...departments.map((department) => ({
+        value: department.id,
+        label: department.name,
+    }))];
+    const supplierOptions = [{value: "", label: "Todos"}, ...suppliers.map((supplier) => ({
+        value: supplier.id,
+        label: supplier.name,
+    }))];
+    const groupOptions = [
+        {value: "none", label: "Sin agrupar"},
+        {value: "department", label: "Departamento"},
+        {value: "supplier", label: "Proveedor"},
+    ];
+    const sortOptions = [
+        {value: "name", label: "Nombre"},
+        {value: "stock-asc", label: "Menor existencia"},
+        {value: "stock-desc", label: "Mayor existencia"},
+        {value: "status", label: "Prioridad"},
+    ];
+    const statusOptions = [
+        {value: "all", label: "Todos", count: totalCount},
+        {value: "critical", label: "Críticos", count: statusCounts.critical},
+        {value: "low", label: "Bajos", count: statusCounts.low},
+        {value: "healthy", label: "Saludables", count: statusCounts.healthy},
+        {value: "neutral", label: "Sin referencia", count: statusCounts.neutral},
+    ];
+    const visibilityOptions = [
+        {value: "active", label: "Solo activos"},
+        {value: "all", label: "Incluir desactivados"},
+    ];
+    const labelFor = (options, value) => options.find((option) => option.value === value)?.label;
+
+    function RadioMenu({icon: Icon, label, value, options, onValueChange}) {
+        return <MenubarMenu>
+            <MenubarTrigger aria-label={label}><Icon size={15}/>
+                <span className="catalog-menubar-trigger-copy">
+                    <span>{label}</span>
+                    <strong>{labelFor(options, value)}</strong>
+                </span>
+            </MenubarTrigger>
+            <MenubarContent>
+                <MenubarLabel>{label}</MenubarLabel>
+                <MenubarRadioGroup value={value} onValueChange={onValueChange}>
+                    {options.map((option) => <MenubarRadioItem key={`${label}-${option.value}`}
+                        value={option.value} closeOnClick>
+                        <span>{option.label}</span>
+                        {option.count !== undefined && <span className="ui-menubar-count">{option.count}</span>}
+                    </MenubarRadioItem>)}
+                </MenubarRadioGroup>
+            </MenubarContent>
+        </MenubarMenu>;
+    }
+
+    return <Menubar aria-label="Opciones de tabla">
+        <RadioMenu icon={Boxes} label="Departamento" value={departmentId}
+            options={departmentOptions} onValueChange={onDepartmentChange}/>
+        <RadioMenu icon={Building2} label="Proveedor" value={supplierId}
+            options={supplierOptions} onValueChange={onSupplierChange}/>
+        <RadioMenu icon={Layers3} label="Agrupación" value={groupBy}
+            options={groupOptions} onValueChange={onGroupChange}/>
+        <RadioMenu icon={ArrowUpDown} label="Orden" value={sortBy}
+            options={sortOptions} onValueChange={onSortChange}/>
+        <RadioMenu icon={AlertTriangle} label="Estado" value={stockFilter}
+            options={statusOptions} onValueChange={onStockFilterChange}/>
+        <RadioMenu icon={Eye} label="Visibilidad" value={includeInactive ? "all" : "active"}
+            options={visibilityOptions}
+            onValueChange={(value) => onIncludeInactiveChange(value === "all")}/>
+    </Menubar>;
+}
+
+function ItemsExplorer({
+    groups,
+    groupBy,
+    collapsedGroups,
+    onToggleGroup,
+    isAdmin,
+    onEdit,
+    onToggle,
+    iconFieldAvailable,
+    emojiFieldAvailable,
+    savingIconIds,
+    onIconChange,
+}) {
     const itemCount = groups.reduce((total, group) => total + group.items.length, 0);
     if (!itemCount) return <div className="catalog-empty"><Boxes size={28}/><h3>No hay ingredientes para mostrar</h3>
         <p>Ajusta la búsqueda o los filtros.</p></div>;
     if (groupBy === "none") return <ItemsTable items={groups[0].items} isAdmin={isAdmin} onEdit={onEdit}
-                                               onToggle={onToggle}/>;
+        onToggle={onToggle} iconFieldAvailable={iconFieldAvailable} emojiFieldAvailable={emojiFieldAvailable}
+        savingIconIds={savingIconIds} onIconChange={onIconChange}/>;
     return <div className="inventory-groups">{groups.map((group) => (
         <InventoryGroup key={group.key} group={group} collapsed={collapsedGroups.has(group.key)}
                         onToggle={() => onToggleGroup(group.key)} isAdmin={isAdmin} onEdit={onEdit}
-                        onItemToggle={onToggle}/>
+                        onItemToggle={onToggle} iconFieldAvailable={iconFieldAvailable}
+                        emojiFieldAvailable={emojiFieldAvailable} savingIconIds={savingIconIds}
+                        onIconChange={onIconChange}/>
     ))}</div>;
 }
 
-function InventoryGroup({group, collapsed, onToggle, isAdmin, onEdit, onItemToggle}) {
+function InventoryGroup({
+    group,
+    collapsed,
+    onToggle,
+    isAdmin,
+    onEdit,
+    onItemToggle,
+    iconFieldAvailable,
+    emojiFieldAvailable,
+    savingIconIds,
+    onIconChange,
+}) {
     const criticalCount = group.items.filter((item) => stockStatus(item).key === "critical").length;
     const bodyId = `inventory-group-${group.key}`;
     return <section className={`inventory-group ${collapsed ? "is-collapsed" : ""}`}>
@@ -654,57 +828,97 @@ function InventoryGroup({group, collapsed, onToggle, isAdmin, onEdit, onItemTogg
         {!collapsed && <div className="inventory-subgroup" id={bodyId}>
             <span className="inventory-subgroup-rail" aria-hidden="true"/>
             <div className="inventory-subgroup-content">
-                <ItemsTable items={group.items} isAdmin={isAdmin} onEdit={onEdit} onToggle={onItemToggle} grouped/>
+                <ItemsTable items={group.items} isAdmin={isAdmin} onEdit={onEdit} onToggle={onItemToggle}
+                    iconFieldAvailable={iconFieldAvailable} emojiFieldAvailable={emojiFieldAvailable}
+                    savingIconIds={savingIconIds} onIconChange={onIconChange} grouped/>
             </div>
         </div>}
     </section>;
 }
 
-function ItemsTable({items, isAdmin, onEdit, onToggle, grouped = false}) {
+function ItemsTable({
+    items,
+    isAdmin,
+    onEdit,
+    onToggle,
+    iconFieldAvailable,
+    emojiFieldAvailable,
+    savingIconIds,
+    onIconChange,
+    grouped = false,
+}) {
     if (!items.length) return <div className="catalog-empty"><Boxes size={28}/><h3>No hay ingredientes para mostrar</h3>
         <p>Ajusta la búsqueda o los filtros.</p></div>;
-    return <div className={`table-wrap ${grouped ? "grouped-table" : ""}`}>
-        <table>
-            <thead>
-            <tr>
-                <th>Ingrediente</th>
-                <th>Departamento</th>
-                <th>Existencia</th>
-                <th>Nivel ideal</th>
-                <th>Estado</th>
-                <th>Costo</th>
-                <th>Proveedor</th>
-                {isAdmin && <th>Acciones</th>}</tr>
-            </thead>
-            <tbody>{items.map((item) => {
-                const status = stockStatus(item);
-                return <tr key={item.id} className={!item.active ? "inactive-row" : ""}>
-                    <td>
-                        <div className="product-cell">
-                            <div className="food-icon"><Boxes size={17}/></div>
-                            <div>
-                                <strong>{item.name}</strong><span>{item.sku || "Sin SKU"}{!item.active ? " · Inactivo" : ""}</span>
-                            </div>
-                        </div>
-                    </td>
-                    <td><span className="category-tag">{item.department?.name ?? "Sin asignar"}</span></td>
-                    <td><strong>{Number(item.quantity).toLocaleString("es-SV")}</strong> {quantityUnitLabel(item.base_unit, item.quantity)}
-                    </td>
-                    <td>{Number(item.par_level).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.par_level)}</td>
-                    <td><span className={`status ${status.key}`}><span/>{status.label}</span></td>
-                    <td>{money.format(Number(item.unit_cost))}</td>
-                    <td>{item.supplier?.name ?? "Sin asignar"}</td>
-                    {isAdmin && <td>
-                        <div className="row-actions">
-                            <button title="Editar" onClick={() => onEdit(item)}><Pencil size={15}/></button>
-                            <button title={item.active ? "Desactivar" : "Reactivar"}
-                                    onClick={() => onToggle(item)}>{item.active ? <CircleOff size={15}/> :
-                                <ArchiveRestore size={15}/>}</button>
-                        </div>
-                    </td>}</tr>;
-            })}</tbody>
-        </table>
-    </div>;
+    const columns = [
+        {
+            id: "ingredient",
+            header: "Ingrediente",
+            cell: ({row}) => {
+                const item = row.original;
+                const context = [item.department?.name, item.supplier?.name].filter(Boolean).join(" · ");
+                return <div className="product-cell catalog-table-product">
+                    {isAdmin && iconFieldAvailable ? <IngredientIconPicker
+                        value={item.icon_key ?? ""} emojiValue={item.icon_emoji ?? ""}
+                        disabled={false} emojiDisabled={!emojiFieldAvailable}
+                        busy={savingIconIds.has(item.id)}
+                        ariaLabel={`Cambiar ícono de ${item.name}`}
+                        triggerClassName="catalog-table-icon-trigger"
+                        onChange={(nextIcon) => onIconChange(item, nextIcon)}/>
+                        : <div className="food-icon"><IngredientIcon iconKey={item.icon_key}
+                            iconEmoji={item.icon_emoji} size={17}/></div>}
+                    <div><strong>{item.name}</strong>
+                        <span>{context || "Sin asignar"}{!item.active ? " · Inactivo" : ""}</span>
+                    </div>
+                </div>;
+            },
+        },
+        {
+            id: "stock",
+            header: "Inventario",
+            cell: ({row}) => {
+                const item = row.original;
+                return <div className="catalog-stock-brief">
+                    <strong>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</strong>
+                    <span>Ideal {Number(item.par_level).toLocaleString("es-SV")}</span>
+                </div>;
+            },
+        },
+        {
+            id: "status",
+            header: "Estado",
+            cell: ({row}) => {
+                const status = stockStatus(row.original);
+                const variant = status.key === "critical" || status.key === "low" ? status.key : "outline";
+                return <Badge variant={variant} className={`catalog-status-badge is-${status.key}`}>
+                    <span aria-hidden="true"/>{status.label}
+                </Badge>;
+            },
+        },
+        {
+            id: "cost",
+            header: "Costo",
+            cell: ({row}) => money.format(Number(row.original.unit_cost)),
+        },
+    ];
+    if (isAdmin) columns.push({
+        id: "actions",
+        header: () => <span className="sr-only">Acciones</span>,
+        cell: ({row}) => {
+            const item = row.original;
+            return <div className="row-actions catalog-row-actions">
+                <button title="Editar" aria-label={`Editar ${item.name}`} onClick={() => onEdit(item)}>
+                    <Pencil size={15}/>
+                </button>
+                <button title={item.active ? "Desactivar" : "Reactivar"}
+                    aria-label={`${item.active ? "Desactivar" : "Reactivar"} ${item.name}`}
+                    onClick={() => onToggle(item)}>{item.active ? <CircleOff size={15}/> :
+                        <ArchiveRestore size={15}/>}</button>
+            </div>;
+        },
+    });
+
+    return <DataTable data={items} columns={columns}
+        className={`catalog-items-data-table ${grouped ? "grouped-table" : ""}`}/>;
 }
 
 function SuppliersTable({suppliers, isAdmin, onEdit, onToggle}) {
@@ -740,25 +954,148 @@ function SuppliersTable({suppliers, isAdmin, onEdit, onToggle}) {
     </div>;
 }
 
-function ItemDialog({draft, departments, suppliers, onClose, onSaved}) {
-    const [values, setValues] = useState(draft);
-    return <CatalogDialog title={draft.id ? "Editar ingrediente" : "Nuevo ingrediente"} values={values}
-                          setValues={setValues} onClose={onClose} onSave={() => saveCatalogItem(values)}
-                          onSaved={onSaved}>
-        <label className="catalog-field wide"><span>Nombre *</span><input required value={values.name}
-                                                                          onChange={(event) => setValues({
-                                                                              ...values,
-                                                                              name: event.target.value
-                                                                          })}/></label>
-        <div className="catalog-generated-field wide">
-            <ShieldCheck size={20}/>
-            <div>
-                <span>SKU automático</span>
-                <strong>{values.sku || "Se asignará al guardar"}</strong>
-                <small>Identificador permanente administrado por el sistema.</small>
-            </div>
-        </div>
+function IngredientIconPicker({
+    value,
+    emojiValue,
+    disabled,
+    emojiDisabled,
+    busy = false,
+    ariaLabel,
+    triggerClassName = "",
+    onChange,
+}) {
+    const [open, setOpen] = useState(false);
+    const [view, setView] = useState(emojiValue ? "emoji" : "icons");
+    const [query, setQuery] = useState("");
+    const searchInputRef = useRef(null);
+    const selected = ingredientIconOption(value);
+    const SelectedIcon = selected.Icon;
+    const results = view === "emoji" ? [] : searchIngredientIcons(query, INGREDIENT_ICON_OPTIONS);
 
+    useEffect(() => {
+        if (!open || view !== "icons") return undefined;
+        const frame = requestAnimationFrame(() => {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [open, view]);
+
+    return <Popover open={open} onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setQuery("");
+    }}>
+        <PopoverTrigger className={`ingredient-icon-trigger ${triggerClassName}`.trim()} type="button"
+            disabled={busy}
+            aria-label={ariaLabel || `Elegir ícono. Actual: ${emojiValue || selected.label}`}
+            title="Elegir ícono">
+            {emojiValue ? <IngredientIcon iconEmoji={emojiValue} size={19}/> : <SelectedIcon size={19}/>}
+        </PopoverTrigger>
+        <PopoverContent className="ingredient-icon-popover">
+            <div className="ingredient-icon-popover-head">
+                <strong>Ícono del ingrediente</strong>
+                {busy ? <small>Guardando…</small>
+                    : (disabled || emojiDisabled) && <small>Actualización pendiente</small>}
+            </div>
+            <div className="ingredient-icon-tabs" role="tablist" aria-label="Fuentes de íconos">
+            <button type="button" role="tab" aria-selected={view === "icons"}
+                onClick={() => {
+                    setView("icons");
+                    setQuery("");
+                }}><Shapes size={13}/>Íconos</button>
+            <button type="button" role="tab" aria-selected={view === "emoji"}
+                onClick={() => {
+                    setView("emoji");
+                    setQuery("");
+                }}><Smile size={13}/>Emojis</button>
+            </div>
+            {view !== "emoji" && <InputGroup className="ingredient-icon-search">
+            <InputGroupInput ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)}
+                aria-label="Buscar ícono" placeholder="Buscar por nombre o tipo…"/>
+            <InputGroupAddon><Search size={16}/></InputGroupAddon>
+            </InputGroup>}
+            {view === "emoji" ? <div className="ingredient-emoji-panel">
+                <Suspense fallback={<div className="ingredient-emoji-loading">
+                    <div className="state-spinner"/>Cargando emojis…
+                </div>}>
+                    <EmojiPicker width="100%" height={330} theme="light" autoFocusSearch
+                        emojiStyle="native" lazyLoadEmojis searchPlaceholder="Buscar emoji…"
+                        previewConfig={{showPreview: false}}
+                        onEmojiClick={({emoji}) => {
+                            if (emojiDisabled) return;
+                            onChange({iconKey: "", iconEmoji: emoji});
+                            setOpen(false);
+                        }}/>
+                </Suspense>
+            </div> : <div className="ingredient-icon-results">
+            {results.length ? results.map(({key, label, Icon}) => <label key={key || "default"}
+                className={!emojiValue && value === key ? "selected" : ""}>
+                <input type="radio" name="ingredient-icon" value={key} aria-label={label}
+                    disabled={disabled || busy}
+                    checked={!emojiValue && value === key}
+                    onChange={() => {
+                        onChange({iconKey: key, iconEmoji: ""});
+                        setOpen(false);
+                    }}/>
+                <span><Icon size={18}/></span><strong>{label}</strong>
+                {!emojiValue && value === key && <Check size={14}/>}
+            </label>) : <div className="ingredient-icon-empty">
+                <Search size={16}/><span>No encontramos un ícono con esa búsqueda.</span>
+            </div>}
+            </div>}
+        </PopoverContent>
+    </Popover>;
+}
+
+function ItemDialog({
+    draft,
+    departments,
+    suppliers,
+    iconFieldAvailable = true,
+    emojiFieldAvailable = true,
+    onClose,
+    onSaved,
+}) {
+    const [values, setValues] = useState(draft);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+    const title = draft.id ? "Editar ingrediente" : "Nuevo ingrediente";
+
+    async function submit(event) {
+        event.preventDefault();
+        setSaving(true);
+        setError("");
+        try {
+            await saveCatalogItem(values);
+            await onSaved();
+        } catch (nextError) {
+            setError(errorMessage(nextError));
+            setSaving(false);
+        }
+    }
+
+    return <Sheet open onOpenChange={(open) => !open && onClose()}>
+        <SheetContent className="ingredient-sheet">
+            <form className="ingredient-sheet-form" onSubmit={submit}>
+                <SheetHeader>
+                    <span className="eyebrow">ADMINISTRACIÓN</span>
+                    <SheetTitle>{title}</SheetTitle>
+                    {draft.id
+                        ? <SheetDescription>Actualiza la información operativa de este ingrediente.</SheetDescription>
+                        : null}
+                </SheetHeader>
+                <div className="ingredient-sheet-body">
+                    <div className="catalog-form-grid">
+        <div className="catalog-field wide"><label htmlFor="ingredient-name">Nombre *</label>
+            <InputGroup className="ingredient-name-input">
+                <InputGroupAddon className="ingredient-icon-addon" interactive><IngredientIconPicker
+                    value={values.iconKey} emojiValue={values.iconEmoji}
+                    disabled={!iconFieldAvailable} emojiDisabled={!emojiFieldAvailable}
+                    onChange={(icon) => setValues({...values, ...icon})}/></InputGroupAddon>
+                <InputGroupInput id="ingredient-name" required autoFocus value={values.name}
+                    onChange={(event) => setValues({...values, name: event.target.value})}/>
+            </InputGroup>
+        </div>
         <label className="catalog-field catalog-unit-field"><span>Unidad de inventario *</span><select required value={values.baseUnit}
                                                                            onChange={(event) => setValues({
                                                                                ...values,
@@ -787,7 +1124,23 @@ function ItemDialog({draft, departments, suppliers, onClose, onSaved}) {
                      onChange={(value) => setValues({...values, reorderPoint: value})}/>
         <NumberField label="Costo por unidad de inventario ($)" value={values.unitCost}
                      onChange={(value) => setValues({...values, unitCost: value})} step="0.01"/>
-    </CatalogDialog>;
+                    </div>
+                    <label className="active-checkbox"><input type="checkbox" checked={values.active}
+                                                              onChange={(event) => setValues({
+                                                                  ...values,
+                                                                  active: event.target.checked
+                                                              })}/> Registro activo</label>
+                    {error && <div className="catalog-message error">{error}</div>}
+                </div>
+                <SheetFooter>
+                    <SheetClose type="button" className="secondary-btn">Cancelar</SheetClose>
+                    <button className="primary-btn" disabled={saving}>
+                        {saving ? "Guardando…" : draft.id ? "Guardar cambios" : "Crear ingrediente"}
+                    </button>
+                </SheetFooter>
+            </form>
+        </SheetContent>
+    </Sheet>;
 }
 
 function SupplierDialog({draft, onClose, onSaved}) {

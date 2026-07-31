@@ -4,13 +4,14 @@ import ShoppingPage from "./ShoppingPage";
 
 const loadShoppingWorkspace = vi.fn();
 const receivePurchaseList = vi.fn();
+const saveShoppingDecision = vi.fn();
 
 vi.mock("../api/shoppingRepository", () => ({
     createPurchaseList: vi.fn(),
     loadShoppingWorkspace: (...args) => loadShoppingWorkspace(...args),
     receivePurchaseList: (...args) => receivePurchaseList(...args),
     resetShoppingDecision: vi.fn(),
-    saveShoppingDecision: vi.fn(),
+    saveShoppingDecision: (...args) => saveShoppingDecision(...args),
     saveShoppingDecisions: vi.fn(),
 }));
 
@@ -46,6 +47,7 @@ describe("ShoppingPage purchase receipt review", () => {
     beforeEach(() => {
         loadShoppingWorkspace.mockReset();
         receivePurchaseList.mockReset();
+        saveShoppingDecision.mockReset();
         loadShoppingWorkspace.mockResolvedValue({
             catalog: {items: [], departments: [], suppliers: []},
             decisions: [],
@@ -77,5 +79,121 @@ describe("ShoppingPage purchase receipt review", () => {
             itemId: "flour",
             quantityReceived: 3,
         }]));
+    });
+
+    it("expands and collapses every recommendation group from one control", async () => {
+        loadShoppingWorkspace.mockResolvedValue({
+            catalog: {
+                departments: [],
+                suppliers: [],
+                items: [{
+                    id: "tomato",
+                    name: "Tomate",
+                    sku: "FOR-001",
+                    active: true,
+                    quantity: 10,
+                    par_level: 30,
+                    reorder_point: 10,
+                    base_unit: "unidad",
+                    department: {id: "produce", name: "Frutas"},
+                    supplier: {id: "market", name: "Mercado"},
+                }],
+            },
+            decisions: [],
+            pendingItemIds: [],
+            lists: [],
+        });
+
+        render(<ShoppingPage/>);
+
+        const expandAll = await screen.findByRole("button", {name: "Expandir todos los grupos"});
+        const group = screen.getByRole("button", {name: "Frutas, 1 ingrediente"});
+        expect(group).toHaveAttribute("aria-expanded", "false");
+
+        fireEvent.click(expandAll);
+        expect(group).toHaveAttribute("aria-expanded", "true");
+        expect(screen.getByRole("button", {name: "Contraer todos los grupos"})).toBeInTheDocument();
+        expect(document.querySelector('[aria-label="Usar cantidad sugerida para Tomate"]'))
+            .toHaveClass("is-hidden");
+
+        fireEvent.click(screen.getByRole("button", {name: "Contraer todos los grupos"}));
+        expect(group).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("restores the suggested quantity without changing inclusion", async () => {
+        loadShoppingWorkspace.mockResolvedValue({
+            catalog: {
+                departments: [],
+                suppliers: [],
+                items: [{
+                    id: "tomato",
+                    name: "Tomate",
+                    sku: "FOR-001",
+                    active: true,
+                    quantity: 10,
+                    par_level: 30,
+                    reorder_point: 10,
+                    base_unit: "unidad",
+                    department: {id: "produce", name: "Frutas"},
+                    supplier: {id: "market", name: "Mercado"},
+                }],
+            },
+            decisions: [{
+                item_id: "tomato",
+                quantity_override: 12,
+                quantity_manually_overridden: true,
+                included: false,
+            }],
+            pendingItemIds: [],
+            lists: [],
+        });
+
+        render(<ShoppingPage/>);
+        fireEvent.click(await screen.findByRole("button", {name: "Expandir todos los grupos"}));
+        fireEvent.click(screen.getByRole("button", {name: "Usar cantidad sugerida para Tomate"}));
+
+        await waitFor(() => expect(saveShoppingDecision).toHaveBeenCalledWith({
+            itemId: "tomato",
+            quantityOverride: null,
+            quantityManuallyOverridden: false,
+            included: false,
+        }));
+        expect(screen.getByRole("button", {name: "Incluir Tomate"})).toBeInTheDocument();
+    });
+
+    it("switches from recommendations to all ingredients for a list created from scratch", async () => {
+        loadShoppingWorkspace.mockResolvedValue({
+            catalog: {
+                departments: [],
+                suppliers: [],
+                items: [
+                    {
+                        id: "tomato", name: "Tomate", active: true, quantity: 10, par_level: 30,
+                        reorder_point: 10, base_unit: "unidad", department: {id: "produce", name: "Frutas"},
+                    },
+                    {
+                        id: "flour", name: "Harina", active: true, quantity: 20, par_level: 20,
+                        reorder_point: 5, base_unit: "lb", department: {id: "pantry", name: "Secos"},
+                    },
+                ],
+            },
+            decisions: [],
+            pendingItemIds: [],
+            lists: [],
+        });
+
+        render(<ShoppingPage/>);
+        expect(await screen.findByRole("button", {name: "Frutas, 1 ingrediente"})).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: "Secos, 1 ingrediente"})).not.toBeInTheDocument();
+
+        const viewTrigger = screen.getByRole("button", {name: "Vista"});
+        fireEvent.click(viewTrigger);
+        const allIngredients = await screen.findByRole("button", {name: /Todos los ingredientes/});
+        fireEvent.click(allIngredients);
+        expect(await screen.findByRole("button", {name: "Secos, 1 ingrediente"})).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", {name: "Expandir todos los grupos"}));
+        expect(await screen.findByText("Harina")).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "Incluir Harina"})).toBeInTheDocument();
+        expect(screen.getByLabelText("Cantidad a comprar de Harina")).toHaveValue(0);
     });
 });

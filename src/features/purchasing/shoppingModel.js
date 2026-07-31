@@ -1,31 +1,34 @@
+import {lowStockThreshold} from "../inventory/catalogModel";
+
 export function suggestedPurchaseQuantity(item) {
   return Math.max(0, Number(item.par_level) - Number(item.quantity));
 }
 
-export function buildShoppingItems(items = [], decisions = [], pendingItemIds = []) {
+export function buildShoppingItems(items = [], decisions = [], pendingItemIds = [], {includeAll = false} = {}) {
   const decisionsByItem = new Map(decisions.map((decision) => [decision.item_id, decision]));
   const pendingItems = new Set(pendingItemIds);
   return items
-    .filter((item) => item.active
-      && Number(item.quantity) <= Number(item.reorder_point)
-      && suggestedPurchaseQuantity(item) > 0
-      && !pendingItems.has(item.id))
+    .filter((item) => item.active && !pendingItems.has(item.id))
     .map((item) => {
       const decision = decisionsByItem.get(item.id);
       const suggestedQuantity = suggestedPurchaseQuantity(item);
+      const recommended = Number(item.quantity) <= lowStockThreshold(item)
+        && suggestedQuantity > 0;
       const quantityManuallyOverridden = decision?.quantity_manually_overridden === true;
       const quantityOverride = !quantityManuallyOverridden || decision?.quantity_override == null
         ? null
         : Number(decision.quantity_override);
       return {
         ...item,
+        recommended,
         suggestedQuantity,
         quantityOverride,
         quantityManuallyOverridden,
-        purchaseQuantity: quantityOverride ?? suggestedQuantity,
-        included: decision?.included ?? true,
+        purchaseQuantity: quantityOverride ?? (recommended ? suggestedQuantity : 0),
+        included: decision?.included ?? recommended,
       };
-    });
+    })
+    .filter((item) => includeAll || item.recommended);
 }
 
 export function matchesShoppingItem(item, {query = "", departmentId = "", supplierId = ""} = {}) {

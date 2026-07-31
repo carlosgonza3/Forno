@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   groupCatalogItems,
   inventoryDashboardSummary,
+  lowStockThreshold,
   matchesCatalogItem,
   quantityUnitLabel,
   sortCatalogItems,
@@ -10,10 +11,14 @@ import {
 } from "./catalogModel";
 
 describe("catalog model", () => {
-  it("classifies stock against reorder and par levels", () => {
-    expect(stockStatus({ quantity: 1, reorder_point: 2, par_level: 10 }).key).toBe("critical");
-    expect(stockStatus({ quantity: 5, reorder_point: 2, par_level: 10 }).key).toBe("low");
-    expect(stockStatus({ quantity: 8, reorder_point: 2, par_level: 10 }).key).toBe("healthy");
+  it("calculates the low threshold at 80% of the path from ideal to reorder", () => {
+    expect(lowStockThreshold({par_level: 30, reorder_point: 10})).toBe(14);
+  });
+
+  it("classifies stock against the derived low threshold and reorder point", () => {
+    expect(stockStatus({quantity: 10, reorder_point: 10, par_level: 30}).key).toBe("critical");
+    expect(stockStatus({quantity: 14, reorder_point: 10, par_level: 30}).key).toBe("low");
+    expect(stockStatus({quantity: 15, reorder_point: 10, par_level: 30}).key).toBe("healthy");
     expect(stockStatus({ quantity: 0, reorder_point: 0, par_level: 0 }).key).toBe("neutral");
   });
 
@@ -51,7 +56,7 @@ describe("catalog model", () => {
   it("summarizes only active inventory for dashboard metrics", () => {
     const summary = inventoryDashboardSummary([
       { active: true, quantity: 1, reorder_point: 2, par_level: 10 },
-      { active: true, quantity: 5, reorder_point: 2, par_level: 10 },
+      { active: true, quantity: 3, reorder_point: 2, par_level: 10 },
       { active: true, quantity: 8, reorder_point: 2, par_level: 10 },
       { active: true, quantity: 0, reorder_point: 0, par_level: 0 },
       { active: false, quantity: 0, reorder_point: 2, par_level: 10 },

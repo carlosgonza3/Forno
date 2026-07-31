@@ -1,23 +1,54 @@
 import {useEffect, useMemo, useState} from "react";
 import {
+    AlertTriangle,
+    CalendarDays,
     Check,
     ChevronDown,
+    ChevronLeft,
     ChevronRight,
+    ChevronsDownUp,
+    ChevronsUpDown,
     ClipboardCheck,
     Download,
     FileText,
     FilterX,
     Leaf,
+    LoaderCircle,
     Minus,
     PackageCheck,
     Plus,
     RefreshCw,
+    RotateCcw,
     Save,
     Search,
     ShoppingBasket,
     X,
 } from "lucide-react";
-import {quantityUnitLabel} from "../../inventory/catalogModel";
+import {quantityUnitLabel, stockStatus} from "../../inventory/catalogModel";
+import {Badge} from "../../../components/ui/badge";
+import {Button} from "../../../components/ui/button";
+import {
+    NavigationMenu,
+    NavigationMenuContent,
+    NavigationMenuItem,
+    NavigationMenuTrigger,
+} from "../../../components/ui/navigation-menu";
+import {InputGroup, InputGroupAddon, InputGroupInput} from "../../../components/ui/input-group";
+import {
+    Sheet,
+    SheetContent,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+} from "../../../components/ui/sheet";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "../../../components/ui/table";
 import FornoFoxLogo from "../../../assets/nico-whine-white.png";
 import {downloadShoppingCsv} from "../shoppingCsv";
 import {downloadShoppingPdf} from "../shoppingPdf";
@@ -26,11 +57,11 @@ import {
     groupShoppingItems,
     matchesShoppingItem,
 } from "../shoppingModel";
+import {IngredientIcon} from "../../inventory/ingredientIcons";
 import {
     createPurchaseList,
     loadShoppingWorkspace,
     receivePurchaseList,
-    resetShoppingDecision,
     saveShoppingDecision,
     saveShoppingDecisions,
 } from "../api/shoppingRepository";
@@ -52,6 +83,7 @@ export default function ShoppingPage() {
     });
     const [items, setItems] = useState([]);
     const [query, setQuery] = useState("");
+    const [viewMode, setViewMode] = useState("recommendations");
     const [groupBy, setGroupBy] = useState("department");
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
     const [collapseInitialized, setCollapseInitialized] = useState(false);
@@ -71,7 +103,7 @@ export default function ShoppingPage() {
         try {
             const next = await loadShoppingWorkspace();
             setWorkspace(next);
-            setItems(buildShoppingItems(next.catalog.items, next.decisions, next.pendingItemIds));
+            setItems(buildShoppingItems(next.catalog.items, next.decisions, next.pendingItemIds, {includeAll: true}));
         } catch (error) {
             setMessage(errorMessage(error));
         } finally {
@@ -83,16 +115,24 @@ export default function ShoppingPage() {
         refresh();
     }, []);
 
-    const filteredItems = useMemo(() => items.filter((item) => matchesShoppingItem(item, {
-        query,
-    })), [items, query]);
+    const filteredItems = useMemo(() => items
+        .filter((item) => viewMode === "all" || item.recommended)
+        .filter((item) => matchesShoppingItem(item, {query})), [items, query, viewMode]);
     const groups = useMemo(() => groupShoppingItems(filteredItems, groupBy), [filteredItems, groupBy]);
+    const visibleGroups = groups.filter((group) => group.items.length);
+    const allGroupsExpanded = visibleGroups.length > 0
+        && visibleGroups.every((group) => !collapsedGroups.has(group.key));
+    const statusCounts = filteredItems.reduce((counts, item) => {
+        const key = stockStatus(item).key;
+        counts[key] = (counts[key] ?? 0) + 1;
+        return counts;
+    }, {critical: 0, low: 0});
     const selectedItems = items.filter((item) => item.included && Number(item.purchaseQuantity) > 0);
     const selectedSupplierNames = [...new Map(selectedItems.map((item) => [
         item.supplier?.id ?? "unassigned",
         item.supplier?.name ?? "Sin proveedor",
     ])).values()].sort((left, right) => left.localeCompare(right, "es"));
-    const hasFilters = Boolean(query);
+    const hasFilters = Boolean(query || viewMode !== "recommendations");
 
     useEffect(() => {
         if (loading || collapseInitialized) return;
@@ -124,11 +164,17 @@ export default function ShoppingPage() {
         const current = items.find((item) => item.id === itemId);
         if (!current) return;
         const quantityChanged = Object.hasOwn(changes, "purchaseQuantity");
+        const usesSuggestedQuantity = quantityChanged
+            && Number(changes.purchaseQuantity) === Number(current.suggestedQuantity);
         const next = {
             ...current,
             ...changes,
-            quantityOverride: quantityChanged ? Number(changes.purchaseQuantity) : current.quantityOverride,
-            quantityManuallyOverridden: quantityChanged ? true : current.quantityManuallyOverridden,
+            quantityOverride: quantityChanged
+                ? (usesSuggestedQuantity ? null : Number(changes.purchaseQuantity))
+                : current.quantityOverride,
+            quantityManuallyOverridden: quantityChanged
+                ? !usesSuggestedQuantity
+                : current.quantityManuallyOverridden,
         };
         setItems((entries) => entries.map((item) => item.id === itemId ? next : item));
         setSaving(itemId, true);
@@ -148,17 +194,21 @@ export default function ShoppingPage() {
         }
     }
 
-    async function resetItem(item) {
+    async function useSuggestedQuantity(item) {
         setSaving(item.id, true);
         setMessage("");
         try {
-            await resetShoppingDecision(item.id);
+            await saveShoppingDecision({
+                itemId: item.id,
+                quantityOverride: null,
+                quantityManuallyOverridden: false,
+                included: item.included,
+            });
             setItems((entries) => entries.map((entry) => entry.id === item.id ? {
                 ...entry,
                 purchaseQuantity: entry.suggestedQuantity,
                 quantityOverride: null,
                 quantityManuallyOverridden: false,
-                included: true,
             } : entry));
         } catch (error) {
             setMessage(errorMessage(error));
@@ -169,6 +219,7 @@ export default function ShoppingPage() {
 
     function resetFilters() {
         setQuery("");
+        setViewMode("recommendations");
     }
 
     function toggleGroup(groupKey) {
@@ -178,6 +229,12 @@ export default function ShoppingPage() {
             else next.add(groupKey);
             return next;
         });
+    }
+
+    function toggleAllGroups() {
+        setCollapsedGroups(allGroupsExpanded
+            ? new Set(visibleGroups.map((group) => group.key))
+            : new Set());
     }
 
     async function toggleGroupSelection(groupItems) {
@@ -247,93 +304,137 @@ export default function ShoppingPage() {
     <div className="shopping-layout shopping-workspace">
         <div className="panel shopping-main">
             <div className="shopping-heading">
-                <div><span className="eyebrow">COMPRAS</span><h2>Ingredientes en o bajo el punto de reorden</h2>
-                    <p>Las cantidades sugeridas completan la existencia actual hasta el nivel ideal.</p></div>
                 <button className="secondary-btn" onClick={refresh} disabled={loading}>
                     <RefreshCw size={16} className={loading ? "spinning" : ""}/>Actualizar
                 </button>
             </div>
             <div className="shopping-filters shopping-filters-simple">
-                <label className="search-box"><Search size={17}/><input value={query}
-                    onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ingrediente o proveedor…"/></label>
-                <label className="shopping-select"><span>Agrupar</span><select value={groupBy}
-                    onChange={(event) => {
-                        const nextGroupBy = event.target.value;
-                        setGroupBy(nextGroupBy);
-                        setCollapsedGroups(new Set(groupShoppingItems(filteredItems, nextGroupBy)
-                            .filter((group) => group.items.length)
-                            .map((group) => group.key)));
-                    }}>
-                    <option value="department">Departamento</option>
-                    <option value="supplier">Proveedor</option>
-                    <option value="none">Sin agrupación</option>
-                </select><ChevronDown size={14}/></label>
+                <InputGroup className="search-box"><InputGroupInput value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    aria-label="Buscar ingrediente o proveedor" placeholder="Buscar ingrediente o proveedor…"/>
+                    <InputGroupAddon><Search size={17}/></InputGroupAddon>
+                </InputGroup>
+                <ShoppingGroupMenu value={groupBy} onChange={(nextGroupBy) => {
+                    setGroupBy(nextGroupBy);
+                    setCollapsedGroups(new Set(groupShoppingItems(filteredItems, nextGroupBy)
+                        .filter((group) => group.items.length)
+                        .map((group) => group.key)));
+                }}/>
+                <ShoppingViewMenu value={viewMode} onChange={(value) => {
+                    setViewMode(value);
+                    setCollapseInitialized(false);
+                    setCollapsedGroups(new Set());
+                }}/>
                 {hasFilters && <button className="shopping-reset-filters" onClick={resetFilters}>
                     <FilterX size={15}/>Limpiar
                 </button>}
             </div>
             {message && <div className="catalog-message error">{message}</div>}
             {success && <div className="catalog-message success">{success}</div>}
-            <div className="shopping-results-bar"><span><strong>{filteredItems.length}</strong>
-                {filteredItems.length === 1 ? " ingrediente encontrado" : " ingredientes encontrados"}</span>
+            <div className="shopping-results-bar">
+                <div className="shopping-results-summary">
+                    <span><strong>{filteredItems.length}</strong>
+                        {filteredItems.length === 1 ? " ingrediente" : " ingredientes"}</span>
+                    <Badge variant="critical"><AlertTriangle size={12}/>{statusCounts.critical} críticos</Badge>
+                    <Badge variant="low">{statusCounts.low} bajos</Badge>
+                    <Badge variant="selected">{selectedItems.length} seleccionados</Badge>
                 </div>
+                {visibleGroups.length > 0 && <Button variant="outline" size="sm" onClick={toggleAllGroups}
+                    aria-label={allGroupsExpanded ? "Contraer todos los grupos" : "Expandir todos los grupos"}>
+                    {allGroupsExpanded ? <ChevronsDownUp size={15}/> : <ChevronsUpDown size={15}/>}
+                    {allGroupsExpanded ? "Contraer todo" : "Expandir todo"}
+                </Button>}
+            </div>
             {loading ? <div className="shopping-state"><div className="state-spinner"/>Cargando lista de compras…</div>
-                : groups.some((group) => group.items.length) ? <div className="shopping-groups">
-                    {groups.filter((group) => group.items.length).map((group) => {
+                : visibleGroups.length ? <div className="shopping-groups">
+                    {visibleGroups.map((group) => {
                         const collapsed = collapsedGroups.has(group.key);
+                        const selectedGroupCount = group.items.filter((item) => item.included).length;
                         return <section className={`shopping-group ${collapsed ? "collapsed" : ""}`} key={group.key}>
                         <header><button className="shopping-group-toggle" onClick={() => toggleGroup(group.key)}
-                            aria-expanded={!collapsed} aria-controls={`shopping-group-${group.key}`}>
+                            aria-expanded={!collapsed} aria-controls={`shopping-group-${group.key}`}
+                            aria-label={`${group.label}, ${group.items.length} ${group.items.length === 1 ? "ingrediente" : "ingredientes"}`}>
                             <span className="shopping-group-chevron">{collapsed
                                 ? <ChevronRight size={16}/> : <ChevronDown size={16}/>}</span>
                             <span><Leaf size={16}/><strong>{group.label}</strong></span>
-                            <b>{group.items.length}</b>
+                            {selectedGroupCount > 0 && <b aria-label={`${selectedGroupCount} seleccionados`}>
+                                {selectedGroupCount}
+                            </b>}
                         </button>
-                            <button className="shopping-group-select" onClick={() => toggleGroupSelection(group.items)}
+                            <Button variant="secondary" size="sm" className="shopping-group-select"
+                                onClick={() => toggleGroupSelection(group.items)}
                                 disabled={group.items.some((item) => savingIds.has(item.id))}>
                                 {group.items.every((item) => item.included)
-                                    ? <><Minus size={14}/>Quitar todos</>
-                                    : <><Check size={14}/>Seleccionar todos</>}
-                            </button>
+                                    ? <><Minus size={14}/>Quitar grupo</>
+                                    : <><Check size={14}/>Incluir grupo</>}
+                            </Button>
                         </header>
-                        {!collapsed && <div className="table-wrap shopping-table" id={`shopping-group-${group.key}`}><table><thead><tr>
-                            <th>Incluir</th><th>Ingrediente</th><th>Proveedor</th><th>Existencia</th>
-                            <th>Nivel ideal</th><th>Cantidad a comprar</th><th></th>
-                        </tr></thead><tbody>{group.items.map((item) => {
+                        {!collapsed && <div className="inventory-subgroup shopping-inventory-subgroup"
+                            id={`shopping-group-${group.key}`}>
+                            <span className="inventory-subgroup-rail" aria-hidden="true"/>
+                            <div className="inventory-subgroup-content shopping-table"><Table>
+                                <TableHeader><TableRow>
+                                    <TableHead className="shopping-select-column">Incluir</TableHead>
+                                    <TableHead>Ingrediente</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead>Existencia</TableHead>
+                                    <TableHead>Cantidad a comprar</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>{group.items.map((item) => {
                             const saving = savingIds.has(item.id);
-                            return <tr className={!item.included ? "shopping-excluded" : ""} key={item.id}>
-                                <td><button className={`shopping-check ${item.included ? "selected" : ""}`}
+                            const status = stockStatus(item);
+                            return <TableRow className={!item.included ? "shopping-excluded" : ""} key={item.id}>
+                                <TableCell className="shopping-select-column"><button className={`shopping-check ${item.included ? "selected" : ""}`}
                                     onClick={() => persist(item.id, {included: !item.included})}
                                     disabled={saving} aria-label={`${item.included ? "Excluir" : "Incluir"} ${item.name}`}>
-                                    {item.included && <Check size={14}/>}</button></td>
-                                <td><div className="shopping-product"><span className="food-icon"><Leaf size={16}/></span>
-                                    <span><strong>{item.name}</strong><small>{item.sku || "Sin SKU"}</small></span></div></td>
-                                <td>{item.supplier?.name ?? <span className="shopping-missing">Sin proveedor</span>}</td>
-                                <td>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</td>
-                                <td>{Number(item.par_level).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.par_level)}</td>
-                                <td><div className="shopping-quantity">
-                                    <button onClick={() => persist(item.id, {purchaseQuantity: Number(item.purchaseQuantity) + 1})}
-                                        disabled={saving} aria-label={`Agregar una unidad de ${item.name}`}><Plus size={14}/></button>
+                                    {item.included && <Check size={14}/>}</button></TableCell>
+                                <TableCell><div className="shopping-product"><span className="food-icon"><IngredientIcon
+                                    iconKey={item.icon_key} iconEmoji={item.icon_emoji} size={16}/></span>
+                                    <span><strong>{item.name}</strong><small>
+                                        {item.supplier?.name ?? <span className="shopping-missing">Sin proveedor</span>}
+                                    </small></span></div></TableCell>
+                                <TableCell><Badge variant={status.key}>
+                                    {status.key === "critical" && <AlertTriangle size={12}/>}
+                                    {status.label}
+                                </Badge></TableCell>
+                                <TableCell><div className="shopping-stock-brief">
+                                    <strong>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</strong>
+                                    <span>Ideal: {Number(item.par_level).toLocaleString("es-SV")}</span>
+                                </div></TableCell>
+                                <TableCell><div className="shopping-purchase-control"><div className="shopping-quantity">
+                                    <button onClick={() => persist(item.id, {purchaseQuantity: Math.max(0, Number(item.purchaseQuantity) - 1)})}
+                                        disabled={saving || Number(item.purchaseQuantity) <= 0}
+                                        aria-label={`Quitar una unidad de ${item.name}`}><Minus size={14}/></button>
                                     <input type="number" min="0" step="0.001" value={item.purchaseQuantity}
                                         disabled={saving} aria-label={`Cantidad a comprar de ${item.name}`}
                                         onChange={(event) => setItems((entries) => entries.map((entry) =>
                                             entry.id === item.id ? {...entry, purchaseQuantity: Math.max(0, Number(event.target.value))} : entry))}
                                         onBlur={() => persist(item.id, {purchaseQuantity: Number(item.purchaseQuantity)})}/>
                                     <span>{quantityUnitLabel(item.base_unit, item.purchaseQuantity)}</span>
-                                    <button onClick={() => persist(item.id, {purchaseQuantity: Math.max(0, Number(item.purchaseQuantity) - 1)})}
-                                        disabled={saving || Number(item.purchaseQuantity) <= 0}
-                                        aria-label={`Quitar una unidad de ${item.name}`}><Minus size={14}/></button>
-                                </div></td>
-                                <td><button className="shopping-suggested" onClick={() => resetItem(item)}
-                                    disabled={saving || (item.included && Number(item.purchaseQuantity) === item.suggestedQuantity)}>
-                                    Sugerido: {Number(item.suggestedQuantity).toLocaleString("es-SV")}
-                                </button></td>
-                            </tr>;
-                        })}</tbody></table></div>}
+                                    <button onClick={() => persist(item.id, {purchaseQuantity: Number(item.purchaseQuantity) + 1})}
+                                        disabled={saving} aria-label={`Agregar una unidad de ${item.name}`}><Plus size={14}/></button>
+                                </div>
+                                    <Button variant="ghost" size="icon"
+                                        className={`shopping-use-suggestion ${Number(item.purchaseQuantity) === Number(item.suggestedQuantity)
+                                            ? "is-hidden" : ""}`}
+                                        onClick={() => useSuggestedQuantity(item)}
+                                        disabled={saving || Number(item.purchaseQuantity) === Number(item.suggestedQuantity)}
+                                        aria-label={`Usar cantidad sugerida para ${item.name}`}
+                                        title={`Usar sugerido: ${Number(item.suggestedQuantity).toLocaleString("es-SV")}`}>
+                                        <RotateCcw size={14}/>
+                                    </Button>
+                                </div></TableCell>
+                            </TableRow>;
+                        })}</TableBody></Table></div></div>}
                     </section>;
                     })}
                 </div> : <div className="shopping-state healthy"><ShoppingBasket size={24}/>
-                    <strong>No hay ingredientes por reponer</strong><span>Las existencias están sobre sus puntos de reorden.</span></div>}
+                    <strong>{viewMode === "recommendations"
+                        ? "No hay ingredientes por reponer"
+                        : "No hay ingredientes disponibles"}</strong>
+                    <span>{viewMode === "recommendations"
+                        ? "Las existencias están sobre sus niveles bajos."
+                        : "Ajusta la búsqueda para ver otros resultados."}</span></div>}
         </div>
         <aside className="panel order-summary shopping-order-summary"><span className="eyebrow">RESUMEN</span>
             <h2>Lista para comprar</h2>
@@ -363,8 +464,77 @@ export default function ShoppingPage() {
     </>;
 }
 
-function supplierCount(items) {
-    return new Set(items.map((item) => item.supplier?.name ?? item.supplier_name ?? "Sin proveedor")).size;
+function ShoppingViewMenu({value, onChange}) {
+    const [openItem, setOpenItem] = useState(null);
+    const options = [
+        {
+            value: "recommendations",
+            label: "Recomendaciones",
+            description: "Ingredientes que alcanzaron el nivel bajo o crítico.",
+        },
+        {
+            value: "all",
+            label: "Todos los ingredientes",
+            description: "Crea una lista desde cero con cualquier ingrediente disponible.",
+        },
+    ];
+    const selected = options.find((option) => option.value === value) ?? options[0];
+
+    return <NavigationMenu className="shopping-view-menu" value={openItem} onValueChange={setOpenItem}>
+        <NavigationMenuItem value="view">
+            <NavigationMenuTrigger aria-label="Vista">
+                <span><small>Vista</small><strong>{selected.label}</strong></span>
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+                <div className="shopping-view-options" aria-label="Elegir vista">
+                    {options.map((option) => <button type="button" key={option.value}
+                        className={option.value === value ? "selected" : ""}
+                        aria-pressed={option.value === value}
+                        onClick={() => {
+                            onChange(option.value);
+                            setOpenItem(null);
+                        }}>
+                        <span>{option.label}</span>
+                        <small>{option.description}</small>
+                        {option.value === value && <Check size={15}/>}
+                    </button>)}
+                </div>
+            </NavigationMenuContent>
+        </NavigationMenuItem>
+    </NavigationMenu>;
+}
+
+function ShoppingGroupMenu({value, onChange}) {
+    const [openItem, setOpenItem] = useState(null);
+    const options = [
+        {value: "department", label: "Departamento"},
+        {value: "supplier", label: "Proveedor"},
+        {value: "none", label: "Sin agrupación"},
+    ];
+    const selected = options.find((option) => option.value === value) ?? options[0];
+
+    return <NavigationMenu className="shopping-view-menu shopping-group-menu"
+        value={openItem} onValueChange={setOpenItem}>
+        <NavigationMenuItem value="group">
+            <NavigationMenuTrigger aria-label="Agrupar">
+                <span><small>Agrupar</small><strong>{selected.label}</strong></span>
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+                <div className="shopping-view-options shopping-group-options" aria-label="Elegir agrupación">
+                    {options.map((option) => <button type="button" key={option.value}
+                        className={option.value === value ? "selected" : ""}
+                        aria-pressed={option.value === value}
+                        onClick={() => {
+                            onChange(option.value);
+                            setOpenItem(null);
+                        }}>
+                        <span>{option.label}</span>
+                        {option.value === value && <Check size={15}/>}
+                    </button>)}
+                </div>
+            </NavigationMenuContent>
+        </NavigationMenuItem>
+    </NavigationMenu>;
 }
 
 function savedListExportItems(list) {
@@ -378,113 +548,211 @@ function savedListExportItems(list) {
 }
 
 function PurchaseReviewDialog({review, saving, onClose, onSave}) {
-    const providers = supplierCount(review.items);
-    return <div className="modal-backdrop purchase-review-backdrop" onMouseDown={onClose}>
-        <section className="modal purchase-review-dialog" role="dialog" aria-modal="true"
-            aria-label="Revisar lista de compras" onMouseDown={(event) => event.stopPropagation()}>
-            <header className="purchase-review-toolbar">
-                <div><span className="eyebrow">REVISAR LISTA</span><strong>Documento de compra</strong></div>
-                <div>
-                    <button className="secondary-btn" onClick={() => downloadShoppingCsv(review.items)}>
-                        <Download size={15}/>CSV
-                    </button>
-                    <button className="secondary-btn" onClick={() => downloadShoppingPdf(review.items, {
-                        createdAt: review.createdAt,
-                        logoUrl: FornoFoxLogo,
-                    })}><FileText size={15}/>PDF</button>
-                    <button className="icon-btn" onClick={onClose} aria-label="Cerrar revisión"><X size={18}/></button>
-                </div>
-            </header>
-            <div className="purchase-document-scroll">
-                <article className="purchase-document">
-                    <header>
-                        <div className="purchase-document-brand"><span><img src={FornoFoxLogo} alt="Forno"/></span><div><strong>FORNO</strong>
-                            <small>LISTA DE COMPRAS</small></div></div>
-                        <div className="purchase-document-date"><span>Preparada</span>
-                            <strong>{review.createdAt.toLocaleString("es-SV", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                            })}</strong></div>
-                    </header>
-                    <h2>Lista para comprar</h2>
-                    <p>Documento pendiente de recepción</p>
-                    <div className="purchase-document-summary">
-                        <div><span>Ingredientes</span><strong>{review.items.length}</strong></div>
-                        <div><span>Proveedores</span><strong>{providers}</strong></div>
-                    </div>
-                    <div className="purchase-document-table"><table><thead><tr>
-                        <th>Ingrediente</th><th>Proveedor</th><th>Cantidad a comprar</th>
-                    </tr></thead><tbody>{review.items.map((item) => <tr key={item.id}>
-                        <td><strong>{item.name}</strong><small>{item.sku || "Sin SKU"}</small></td>
-                        <td>{item.supplier?.name ?? "Sin proveedor"}</td>
-                        <td><strong>{Number(item.purchaseQuantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.purchaseQuantity)}</strong></td>
-                    </tr>)}</tbody></table></div>
-                    <footer><span>Forno · Lista generada desde inventario</span></footer>
-                </article>
+    const [exportingPdf, setExportingPdf] = useState(false);
+
+    async function exportPdf() {
+        setExportingPdf(true);
+        try {
+            await downloadShoppingPdf(review.items, {
+                createdAt: review.createdAt,
+                logoUrl: FornoFoxLogo,
+            });
+        } finally {
+            setExportingPdf(false);
+        }
+    }
+
+    return <Sheet open onOpenChange={(open) => !open && !saving && onClose()}>
+        <SheetContent className="purchase-review-sheet">
+            <SheetHeader>
+                <SheetTitle>Lista para comprar</SheetTitle>
+            </SheetHeader>
+            <div className="purchase-review-simple-list">
+                {review.items.map((item) => <div className="purchase-review-simple-item" key={item.id}>
+                    <strong>{item.name}</strong>
+                    <span>{Number(item.purchaseQuantity).toLocaleString("es-SV")}{" "}
+                        {quantityUnitLabel(item.base_unit, item.purchaseQuantity)}</span>
+                </div>)}
             </div>
-            <footer className="purchase-review-actions">
-                <div><strong>¿Todo correcto?</strong><span>Al guardar, estos ingredientes dejarán de aparecer como recomendados.</span></div>
+            <SheetFooter className="purchase-review-sheet-footer">
+                <div className="purchase-review-export-actions">
+                    <Button variant="outline" onClick={() => downloadShoppingCsv(review.items)}>
+                        <Download size={15}/>Exportar CSV
+                    </Button>
+                    <Button variant="outline" onClick={exportPdf} disabled={exportingPdf}>
+                        {exportingPdf
+                            ? <><LoaderCircle className="spinning" size={15}/>Generando…</>
+                            : <><FileText size={15}/>Exportar PDF</>}
+                    </Button>
+                </div>
                 <button className="primary-btn" onClick={onSave} disabled={saving}>
                     <Save size={16}/>{saving ? "Guardando…" : "Guardar lista pendiente"}
                 </button>
-            </footer>
-        </section>
-    </div>;
+            </SheetFooter>
+        </SheetContent>
+    </Sheet>;
 }
 
 function PurchaseListHistory({lists, expandedLists, onToggle, onReceive}) {
+    const [view, setView] = useState("all");
+    const [month, setMonth] = useState(() => {
+        const today = new Date();
+        return new Date(today.getFullYear(), today.getMonth(), 1);
+    });
+    const [selectedDate, setSelectedDate] = useState(() => dateKey(new Date()));
+    const pendingCount = lists.filter((list) => list.status === "pending").length;
+    const completedCount = lists.length - pendingCount;
+    const filteredLists = view === "pending"
+        ? lists.filter((list) => list.status === "pending")
+        : view === "completed"
+            ? lists.filter((list) => list.status !== "pending")
+            : lists;
+
     return <section className="panel purchase-history">
         <header className="purchase-history-heading"><div><span className="eyebrow">HISTORIAL</span>
             <h2>Listas de compras guardadas</h2><p>Pendientes y recibidas por el equipo.</p></div>
             <strong>{lists.length}</strong></header>
-        {lists.length ? <div className="purchase-history-list">{lists.map((list) => {
-            const expanded = expandedLists.has(list.id);
-            const exportedItems = savedListExportItems(list);
-            const providers = new Set(list.items.map((item) => item.supplier_name)).size;
-            return <article className="purchase-history-entry" key={list.id}>
-                <button className="purchase-history-toggle" onClick={() => onToggle(list.id)}
-                    aria-expanded={expanded}>
-                    <span className="purchase-history-icon"><FileText size={17}/></span>
-                    <span><strong>Lista #{list.id.slice(0, 8).toUpperCase()}</strong>
-                        <small>{new Date(list.created_at).toLocaleString("es-SV", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                        })} · {providers} {providers === 1 ? "proveedor" : "proveedores"}</small></span>
-                    <span className={`purchase-status ${list.status}`}>
-                        {list.status === "pending" ? "Pendiente" : "Recibida"}
-                    </span>
-                    <span>{list.item_count} {list.item_count === 1 ? "ingrediente" : "ingredientes"}</span>
-                    {expanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
-                </button>
-                {expanded && <div className="purchase-history-detail">
-                    <div className="table-wrap"><table><thead><tr>
-                        <th>Ingrediente</th><th>Proveedor</th><th>Cantidad ordenada</th><th>Cantidad recibida</th>
-                    </tr></thead><tbody>{list.items.map((item) => <tr key={item.item_id}>
-                        <td><strong>{item.item_name}</strong></td><td>{item.supplier_name}</td>
-                        <td>{Number(item.quantity_ordered).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity_ordered)}</td>
-                        <td>{item.quantity_received == null ? "—"
-                            : <strong>{Number(item.quantity_received).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity_received)}</strong>}</td>
-                    </tr>)}</tbody></table></div>
-                    <footer>
-                        <div><button className="secondary-btn" onClick={() => downloadShoppingCsv(exportedItems)}>
-                            <Download size={15}/>CSV</button>
-                            <button className="secondary-btn" onClick={() => downloadShoppingPdf(exportedItems, {
-                                createdAt: new Date(list.created_at),
-                                logoUrl: FornoFoxLogo,
-                            })}><FileText size={15}/>PDF</button></div>
-                        {list.status === "pending" ? <button className="primary-btn" onClick={() => onReceive(list)}>
-                            <PackageCheck size={16}/>Marcar recibida y agregar al inventario
-                        </button> : <span className="purchase-received-note"><Check size={15}/>
-                            Recibida {new Date(list.received_at).toLocaleString("es-SV", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                            })}</span>}
-                    </footer>
-                </div>}
-            </article>;
-        })}</div> : <div className="purchase-history-empty"><FileText size={23}/>
+        <div className="purchase-history-tabs" role="tablist" aria-label="Vistas de listas guardadas">
+            {[
+                ["all", "Todas", lists.length],
+                ["pending", "Pendientes", pendingCount],
+                ["completed", "Completadas", completedCount],
+                ["calendar", "Calendario", null],
+            ].map(([key, label, count]) => <button key={key} role="tab" aria-selected={view === key}
+                className={view === key ? "active" : ""} onClick={() => setView(key)}>
+                {key === "calendar" && <CalendarDays size={14}/>}
+                {label}{count !== null && <span>{count}</span>}
+            </button>)}
+        </div>
+        {lists.length ? view === "calendar"
+            ? <PurchaseHistoryCalendar lists={lists} month={month} onMonthChange={setMonth}
+                selectedDate={selectedDate} onDateChange={setSelectedDate}
+                expandedLists={expandedLists} onToggle={onToggle} onReceive={onReceive}/>
+            : filteredLists.length
+                ? <PurchaseHistoryList lists={filteredLists} expandedLists={expandedLists}
+                    onToggle={onToggle} onReceive={onReceive}/>
+                : <div className="purchase-history-empty"><FileText size={23}/>
+                    <strong>No hay listas en esta vista</strong><span>Prueba otra pestaña.</span></div>
+            : <div className="purchase-history-empty"><FileText size={23}/>
             <strong>Aún no hay listas guardadas</strong><span>Las nuevas listas aparecerán aquí.</span></div>}
     </section>;
+}
+
+function dateKey(value) {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function PurchaseHistoryList({lists, expandedLists, onToggle, onReceive, compact = false}) {
+    return <div className={`purchase-history-list ${compact ? "is-compact" : ""}`}>
+        {lists.map((list) => <PurchaseHistoryEntry key={list.id} list={list}
+            expanded={expandedLists.has(list.id)} onToggle={onToggle} onReceive={onReceive}/>)}
+    </div>;
+}
+
+function PurchaseHistoryEntry({list, expanded, onToggle, onReceive}) {
+    const exportedItems = savedListExportItems(list);
+    const providers = new Set(list.items.map((item) => item.supplier_name)).size;
+    return <article className="purchase-history-entry">
+        <button className="purchase-history-toggle" onClick={() => onToggle(list.id)}
+            aria-expanded={expanded}>
+            <span className="purchase-history-icon"><FileText size={17}/></span>
+            <span><strong>Lista #{list.id.slice(0, 8).toUpperCase()}</strong>
+                <small>{new Date(list.created_at).toLocaleString("es-SV", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                })} · {providers} {providers === 1 ? "proveedor" : "proveedores"}</small></span>
+            <span className={`purchase-status ${list.status}`}>
+                {list.status === "pending" ? "Pendiente" : "Completada"}
+            </span>
+            <span>{list.item_count} {list.item_count === 1 ? "ingrediente" : "ingredientes"}</span>
+            {expanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+        </button>
+        {expanded && <div className="purchase-history-detail">
+            <div className="purchase-history-order-list">
+                {list.items.map((item) => <div key={item.item_id}>
+                    <strong>{item.item_name}</strong>
+                    <span>{Number(item.quantity_ordered).toLocaleString("es-SV")}{" "}
+                        {quantityUnitLabel(item.base_unit, item.quantity_ordered)}</span>
+                </div>)}
+            </div>
+            <footer>
+                <div><button className="secondary-btn" onClick={() => downloadShoppingCsv(exportedItems)}>
+                    <Download size={15}/>CSV</button>
+                    <button className="secondary-btn" onClick={() => downloadShoppingPdf(exportedItems, {
+                        createdAt: new Date(list.created_at),
+                        logoUrl: FornoFoxLogo,
+                    })}><FileText size={15}/>PDF</button></div>
+                {list.status === "pending" ? <button className="primary-btn" onClick={() => onReceive(list)}>
+                    <PackageCheck size={16}/>Marcar recibida y agregar al inventario
+                </button> : <span className="purchase-received-note"><Check size={15}/>
+                    Completada {new Date(list.received_at).toLocaleString("es-SV", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                    })}</span>}
+            </footer>
+        </div>}
+    </article>;
+}
+
+function PurchaseHistoryCalendar({
+    lists,
+    month,
+    onMonthChange,
+    selectedDate,
+    onDateChange,
+    expandedLists,
+    onToggle,
+    onReceive,
+}) {
+    const year = month.getFullYear();
+    const monthIndex = month.getMonth();
+    const firstWeekday = new Date(year, monthIndex, 1).getDay();
+    const dayCount = new Date(year, monthIndex + 1, 0).getDate();
+    const listsByDate = lists.reduce((map, list) => {
+        const key = dateKey(list.created_at);
+        map.set(key, [...(map.get(key) ?? []), list]);
+        return map;
+    }, new Map());
+    const selectedLists = listsByDate.get(selectedDate) ?? [];
+    const cells = [
+        ...Array.from({length: firstWeekday}, () => null),
+        ...Array.from({length: dayCount}, (_, index) => index + 1),
+    ];
+
+    return <div className="purchase-calendar-layout">
+        <div className="purchase-calendar">
+            <header><button aria-label="Mes anterior"
+                onClick={() => onMonthChange(new Date(year, monthIndex - 1, 1))}><ChevronLeft size={16}/></button>
+                <strong>{month.toLocaleDateString("es-SV", {month: "long", year: "numeric"})}</strong>
+                <button aria-label="Mes siguiente"
+                    onClick={() => onMonthChange(new Date(year, monthIndex + 1, 1))}><ChevronRight size={16}/></button>
+            </header>
+            <div className="purchase-calendar-weekdays">
+                {["D", "L", "M", "M", "J", "V", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+            </div>
+            <div className="purchase-calendar-grid">{cells.map((day, index) => {
+                if (day === null) return <span key={`empty-${index}`}/>;
+                const key = dateKey(new Date(year, monthIndex, day));
+                const hasLists = listsByDate.has(key);
+                return <button key={key} className={selectedDate === key ? "selected" : ""}
+                    aria-label={`${day} de ${month.toLocaleDateString("es-SV", {month: "long"})}${hasLists ? ", con listas guardadas" : ""}`}
+                    onClick={() => onDateChange(key)}>
+                    <span>{day}</span>{hasLists && <i aria-hidden="true"/>}
+                </button>;
+            })}</div>
+        </div>
+        <aside className="purchase-calendar-orders">
+            <header><span>Órdenes del día</span><strong>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString("es-SV", {
+                dateStyle: "long",
+            })}</strong></header>
+            {selectedLists.length
+                ? <PurchaseHistoryList lists={selectedLists} expandedLists={expandedLists}
+                    onToggle={onToggle} onReceive={onReceive} compact/>
+                : <div className="purchase-calendar-empty"><CalendarDays size={21}/>
+                    <span>No hay listas guardadas este día.</span></div>}
+        </aside>
+    </div>;
 }
 
 function ReceivePurchaseDialog({list, saving, onClose, onConfirm}) {
@@ -520,7 +788,6 @@ function ReceivePurchaseDialog({list, saving, onClose, onConfirm}) {
                 <div className="receive-purchase-icon"><PackageCheck size={24}/></div>
                 <div><span className="eyebrow">REVISAR RECEPCIÓN</span>
                     <h2>Compara lo ordenado con lo recibido</h2>
-                    <p>Actualiza las cantidades que realmente entregó cada proveedor. Puedes indicar cero si un producto no llegó.</p>
                 </div>
             </header>
             <div className="receive-purchase-summary">

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogPage from "./CatalogPage";
 
 const loadCatalog = vi.fn();
+const saveCatalogItem = vi.fn();
+const setCatalogItemIcon = vi.fn();
 const setInventoryExistences = vi.fn();
 const downloadInventoryCsv = vi.fn();
 let authRole = "local";
@@ -14,7 +16,8 @@ vi.mock("../../auth/AuthProvider", () => ({
 vi.mock("../api/catalogRepository", () => ({
   setInventoryExistences: (...args) => setInventoryExistences(...args),
   loadCatalog: (...args) => loadCatalog(...args),
-  saveCatalogItem: vi.fn(),
+  saveCatalogItem: (...args) => saveCatalogItem(...args),
+  setCatalogItemIcon: (...args) => setCatalogItemIcon(...args),
   saveSupplier: vi.fn(),
   setCatalogItemActive: vi.fn(),
   setSupplierActive: vi.fn(),
@@ -23,6 +26,14 @@ vi.mock("../api/catalogRepository", () => ({
 vi.mock("../inventoryCsv", async (importOriginal) => ({
   ...await importOriginal(),
   downloadInventoryCsv: (...args) => downloadInventoryCsv(...args),
+}));
+
+vi.mock("emoji-picker-react", () => ({
+  default: ({autoFocusSearch, onEmojiClick, theme}) => <button type="button" aria-label="pizza"
+    data-autofocus={autoFocusSearch ? "true" : "false"} data-theme={theme}
+    onClick={() => onEmojiClick({emoji: "🍕"})}>🍕</button>,
+  EmojiStyle: {NATIVE: "native"},
+  Theme: {AUTO: "auto", LIGHT: "light"},
 }));
 
 const produce = { id: "produce", name: "Frutas y verduras", sort_order: 10 };
@@ -52,11 +63,17 @@ describe("CatalogPage inventory explorer", () => {
     authRole = "local";
     loadCatalog.mockClear();
     setInventoryExistences.mockClear();
+    saveCatalogItem.mockReset();
+    saveCatalogItem.mockResolvedValue({id: "tomato"});
+    setCatalogItemIcon.mockReset();
+    setCatalogItemIcon.mockResolvedValue(undefined);
     setInventoryExistences.mockResolvedValue([]);
     downloadInventoryCsv.mockClear();
     loadCatalog.mockResolvedValue({
       departments: [produce, pantry],
       suppliers: [market],
+      iconFieldAvailable: true,
+      emojiFieldAvailable: true,
       items: [
         item({ id: "tomato", name: "Tomate", sku: "FOR-001", quantity: 1, par: 10, reorder: 2, department: produce }),
         item({ id: "lime", name: "Limón", sku: "FOR-002", quantity: 8, par: 10, reorder: 2, department: produce }),
@@ -72,21 +89,39 @@ describe("CatalogPage inventory explorer", () => {
     expect(await screen.findByText("Tomate")).toBeInTheDocument();
     expect([...document.querySelectorAll(".catalog-tabs button")].map((button) => button.textContent.trim()))
       .toEqual(["Ingredientes", "Proveedores"]);
-    expect(screen.getByRole("checkbox", { name: "Inactivos" }).closest(".catalog-panel-head"))
-      .toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Inactivos" })).toBeChecked();
-    expect(screen.getByLabelText("Agrupación")).toHaveValue("none");
-    expect(screen.getByText("Producto archivado")).toBeInTheDocument();
+    expect(screen.getByRole("menubar", { name: "Opciones de tabla" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
+    expect(await screen.findByRole("menuitemradio", { name: "Sin agrupar" })).toHaveAttribute(
+      "aria-checked", "true",
+    );
+    expect(screen.queryByText("Producto archivado")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Frutas y verduras/ })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Agrupación"), { target: { value: "department" } });
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Departamento" }));
     expect(await screen.findByRole("button", { name: /Frutas y verduras/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Otros/ })).toBeInTheDocument();
     expect(screen.getByText("Harina")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Críticos/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Estado" }));
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: /Críticos/ }));
     await waitFor(() => expect(screen.queryByText("Harina")).not.toBeInTheDocument());
     expect(screen.getByText("Tomate")).toBeInTheDocument();
+  });
+
+  it("can include or hide deactivated ingredients from the inventory toolbar", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    expect(screen.queryByText("Producto archivado")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", {name: "Visibilidad"}));
+    expect(await screen.findByRole("menuitemradio", {name: "Solo activos"}))
+      .toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("menuitemradio", {name: "Incluir desactivados"}));
+    expect(await screen.findByText("Producto archivado")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", {name: "Visibilidad"}));
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Solo activos"}));
+    await waitFor(() => expect(screen.queryByText("Producto archivado")).not.toBeInTheDocument());
   });
 
   it("places the contextual create action in the catalog header", async () => {
@@ -95,7 +130,9 @@ describe("CatalogPage inventory explorer", () => {
 
     const createButton = await screen.findByRole("button", { name: /^Ingrediente$/ });
     expect(createButton).toHaveClass("catalog-create-button");
-    expect(createButton.closest(".catalog-panel-head")).toBeInTheDocument();
+    expect(createButton.closest(".catalog-item-create-row")).toBeInTheDocument();
+    expect(createButton.closest(".catalog-item-create-row")?.nextElementSibling)
+      .toHaveClass("catalog-data-toolbar");
     expect(createButton.closest(".catalog-tools")).not.toBeInTheDocument();
   });
 
@@ -107,22 +144,89 @@ describe("CatalogPage inventory explorer", () => {
     const editButtons = screen.getAllByTitle("Editar");
     fireEvent.click(editButtons[0]);
 
+    expect(screen.getByRole("dialog", { name: "Editar ingrediente" })).toHaveClass("ingredient-sheet");
     expect(screen.getByLabelText(/^Unidad de inventario/)).toBeInTheDocument();
     expect(screen.getByText("Existencia, niveles y costo usan esta misma unidad.")).toBeInTheDocument();
     expect(screen.getByText("Costo por unidad de inventario ($)")).toBeInTheDocument();
-    expect(screen.getByText("SKU automático")).toBeInTheDocument();
-    expect(screen.getByText("Identificador permanente administrado por el sistema.")).toBeInTheDocument();
+    expect(screen.queryByText("SKU automático")).not.toBeInTheDocument();
+    expect(screen.queryByText("Identificador permanente administrado por el sistema.")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("SKU")).not.toBeInTheDocument();
     expect(screen.queryByText("Tamaño del empaque")).not.toBeInTheDocument();
     expect(screen.queryByText("Unidad del empaque")).not.toBeInTheDocument();
+  });
+
+  it("selects and persists a curated ingredient icon while editing", async () => {
+    authRole = "admin";
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    const tomatoRow = screen.getByText("Tomate").closest("tr");
+    fireEvent.click(tomatoRow.querySelector('button[title="Editar"]'));
+    const iconTrigger = screen.getByRole("button", {name: /Elegir ícono/});
+    expect(iconTrigger.closest("[data-slot='input-group-addon']")).toHaveAttribute("data-interactive");
+    fireEvent.click(iconTrigger);
+    expect(screen.getByRole("tab", {name: "Íconos"})).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", {name: "Recomendados"})).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Buscar ícono")).toHaveFocus());
+    fireEvent.click(screen.getByRole("radio", {name: "Vegetales"}));
+    expect(screen.getByRole("button", {name: /Actual: Vegetales/})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: /Elegir ícono/}));
+    expect(screen.getByRole("radio", {name: "General"})).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Buscar ícono"), {target: {value: "vino"}});
+    expect(screen.getByRole("radio", {name: "Vinos"})).toBeInTheDocument();
+    expect(screen.queryByRole("radio", {name: "General"})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Guardar cambios"}));
+
+    await waitFor(() => expect(saveCatalogItem).toHaveBeenCalledWith(
+      expect.objectContaining({id: "tomato", iconKey: "produce"}),
+    ));
+  });
+
+  it("updates an ingredient icon directly from the inventory table", async () => {
+    authRole = "admin";
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    fireEvent.click(screen.getByRole("button", {name: "Cambiar ícono de Tomate"}));
+    await waitFor(() => expect(screen.getByLabelText("Buscar ícono")).toHaveFocus());
+    fireEvent.click(screen.getByRole("radio", {name: "Vegetales"}));
+
+    await waitFor(() => expect(setCatalogItemIcon).toHaveBeenCalledWith("tomato", {
+      iconKey: "produce",
+      iconEmoji: "",
+    }));
+    expect(screen.queryByRole("dialog", {name: "Editar ingrediente"})).not.toBeInTheDocument();
+  });
+
+  it("selects any emoji from the complete searchable picker", async () => {
+    authRole = "admin";
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    const tomatoRow = screen.getByText("Tomate").closest("tr");
+    fireEvent.click(tomatoRow.querySelector('button[title="Editar"]'));
+    fireEvent.click(screen.getByRole("button", {name: /Elegir ícono/}));
+    fireEvent.click(screen.getByRole("tab", {name: "Emojis"}));
+    const emoji = await screen.findByRole("button", {name: "pizza"});
+    expect(emoji).toHaveAttribute("data-theme", "light");
+    expect(emoji).toHaveAttribute("data-autofocus", "true");
+    fireEvent.click(emoji);
+
+    expect(screen.getByRole("button", {name: /Actual: 🍕/})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Guardar cambios"}));
+    await waitFor(() => expect(saveCatalogItem).toHaveBeenCalledWith(
+      expect.objectContaining({id: "tomato", iconKey: "", iconEmoji: "🍕"}),
+    ));
   });
 
   it("exports the currently filtered, grouped, and sorted inventory result", async () => {
     render(<CatalogPage />);
     await screen.findByText("Tomate");
 
-    fireEvent.change(screen.getByLabelText("Agrupación"), { target: { value: "department" } });
-    fireEvent.click(screen.getByRole("button", { name: /Críticos/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: "Departamento" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Estado" }));
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: /Críticos/ }));
     fireEvent.click(screen.getByRole("button", { name: /Exportar CSV/ }));
 
     expect(screen.getByRole("heading", { name: "Personaliza tu archivo CSV" })).toBeInTheDocument();
@@ -145,7 +249,8 @@ describe("CatalogPage inventory explorer", () => {
   it("collapses and expands an inventory group", async () => {
     render(<CatalogPage />);
     await screen.findByText("Tomate");
-    fireEvent.change(screen.getByLabelText("Agrupación"), { target: { value: "department" } });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: "Departamento" }));
     const groupButton = await screen.findByRole("button", { name: /Frutas y verduras/ });
     const group = groupButton.closest(".inventory-group");
 
@@ -164,14 +269,15 @@ describe("CatalogPage inventory explorer", () => {
   it("keeps the normal page layout while the table is used", async () => {
     render(<CatalogPage />);
     const tomato = await screen.findByText("Tomate");
-    expect(screen.getByLabelText("Agrupación")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Agrupación" })).toBeInTheDocument();
 
     fireEvent.pointerDown(tomato);
-    expect(screen.getByLabelText("Agrupación")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Agrupación" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ingredientes y proveedores" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Opciones/ }));
-    expect(screen.queryByLabelText("Agrupación")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
+    expect(await screen.findByRole("menuitemradio", { name: "Sin agrupar" })).toBeInTheDocument();
+    expect(screen.getByRole("menubar", { name: "Opciones de tabla" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ingredientes y proveedores" })).toBeInTheDocument();
   });
 

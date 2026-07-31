@@ -4,6 +4,7 @@ import {Navigate, useLocation, useNavigate} from "react-router-dom";
 import {useAuth} from "./AuthProvider";
 import {getPasswordResetErrorMessage} from "./authErrors";
 import NicoWineWhite from "../../assets/nico-whine-white.png";
+import {InputGroup, InputGroupAddon, InputGroupInput} from "../../components/ui/input-group";
 
 export default function LoginPage() {
     const {configured, session, signIn, requestPasswordReset} = useAuth();
@@ -57,17 +58,18 @@ export default function LoginPage() {
                 <span className="state-kicker">BIENVENIDO A FORNO</span>
                 <h2 className={"label"}>Inicia sesión</h2>
                 <form onSubmit={handleSubmit}><label>Correo electrónico
-                    <div className="auth-input"><Mail size={18}/><input type="email" autoComplete="email" value={email}
-                                                                        onChange={(event) => setEmail(event.target.value)}
-                                                                        required placeholder="nombre@forno.restaurant"/>
-                    </div>
+                    <InputGroup className="auth-input"><InputGroupInput type="email" autoComplete="email" value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        required placeholder="nombre@forno.restaurant"/>
+                        <InputGroupAddon><Mail size={18}/></InputGroupAddon>
+                    </InputGroup>
                 </label><label>Contraseña
-                    <div className="auth-input"><LockKeyhole size={18}/><input type="password"
-                                                                               autoComplete="current-password"
-                                                                               value={password}
-                                                                               onChange={(event) => setPassword(event.target.value)}
-                                                                               required placeholder="••••••••••••"/>
-                    </div>
+                    <InputGroup className="auth-input"><InputGroupInput type="password"
+                        autoComplete="current-password" value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        required placeholder="••••••••••••"/>
+                        <InputGroupAddon><LockKeyhole size={18}/></InputGroupAddon>
+                    </InputGroup>
                 </label>{error && <div className="form-message error" role="alert">{error}</div>}{message &&
                     <div className="form-message success" role="status">{message}</div>}
                     <button className="primary-btn auth-submit"

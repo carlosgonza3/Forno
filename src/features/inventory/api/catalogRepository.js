@@ -9,10 +9,16 @@ const ITEM_SELECT = `
   par_level,
   reorder_point,
   unit_cost,
+  icon_key,
+  icon_emoji,
   active,
   department:departments(id, name),
   supplier:suppliers(id, name)
 `;
+const ICON_ONLY_ITEM_SELECT = ITEM_SELECT.replace("  icon_emoji,\n", "");
+const LEGACY_ITEM_SELECT = ICON_ONLY_ITEM_SELECT.replace("  icon_key,\n", "");
+let iconFieldAvailable = true;
+let emojiFieldAvailable = true;
 
 function requireClient() {
   if (!supabase) throw new Error("Supabase no está configurado.");
@@ -23,10 +29,34 @@ function throwIfError(error) {
   if (error) throw error;
 }
 
+function isMissingField(error, field) {
+  return ["42703", "PGRST204"].includes(error?.code)
+    && String(error?.message ?? "").includes(field);
+}
+
+async function loadCatalogItems(client) {
+  let retriedWithoutEmoji = false;
+  let result = await client.from("inventory_items").select(ITEM_SELECT).order("name");
+  if (isMissingField(result.error, "icon_emoji")) {
+    retriedWithoutEmoji = true;
+    emojiFieldAvailable = false;
+    result = await client.from("inventory_items").select(ICON_ONLY_ITEM_SELECT).order("name");
+  }
+  if (isMissingField(result.error, "icon_key")) {
+    iconFieldAvailable = false;
+    emojiFieldAvailable = false;
+    result = await client.from("inventory_items").select(LEGACY_ITEM_SELECT).order("name");
+  } else if (!result.error) {
+    iconFieldAvailable = true;
+    emojiFieldAvailable = !retriedWithoutEmoji;
+  }
+  return result;
+}
+
 export async function loadCatalog() {
   const client = requireClient();
   const [itemsResult, departmentsResult, suppliersResult] = await Promise.all([
-    client.from("inventory_items").select(ITEM_SELECT).order("name"),
+    loadCatalogItems(client),
     client.from("departments").select("id, name, sort_order").order("sort_order").order("name"),
     client.from("suppliers").select("id, name, email, phone, active").order("name"),
   ]);
@@ -39,6 +69,8 @@ export async function loadCatalog() {
     items: itemsResult.data ?? [],
     departments: departmentsResult.data ?? [],
     suppliers: suppliersResult.data ?? [],
+    iconFieldAvailable,
+    emojiFieldAvailable,
   };
 }
 
@@ -117,6 +149,18 @@ export async function saveCatalogItem(values) {
     active: values.active,
     updated_at: new Date().toISOString(),
   };
+  if (iconFieldAvailable) payload.icon_key = values.iconKey || null;
+  else if (values.iconKey) {
+    const error = new Error("La selección de íconos aún no está habilitada en la base de datos.");
+    error.code = "ICON_FIELD_UNAVAILABLE";
+    throw error;
+  }
+  if (emojiFieldAvailable) payload.icon_emoji = values.iconEmoji || null;
+  else if (values.iconEmoji) {
+    const error = new Error("La selección de emojis aún no está habilitada en la base de datos.");
+    error.code = "ICON_FIELD_UNAVAILABLE";
+    throw error;
+  }
 
   const result = values.id
     ? await client.from("inventory_items").update(payload).eq("id", values.id).select("id").single()
@@ -124,6 +168,31 @@ export async function saveCatalogItem(values) {
 
   throwIfError(result.error);
   return result.data;
+}
+
+export async function setCatalogItemIcon(id, { iconKey, iconEmoji }) {
+  if (!iconFieldAvailable) {
+    const error = new Error("La selección de íconos aún no está habilitada en la base de datos.");
+    error.code = "ICON_FIELD_UNAVAILABLE";
+    throw error;
+  }
+  if (!emojiFieldAvailable && iconEmoji) {
+    const error = new Error("La selección de emojis aún no está habilitada en la base de datos.");
+    error.code = "ICON_FIELD_UNAVAILABLE";
+    throw error;
+  }
+
+  const payload = {
+    icon_key: iconKey || null,
+    updated_at: new Date().toISOString(),
+  };
+  if (emojiFieldAvailable) payload.icon_emoji = iconEmoji || null;
+
+  const result = await requireClient()
+    .from("inventory_items")
+    .update(payload)
+    .eq("id", id);
+  throwIfError(result.error);
 }
 
 export async function setCatalogItemActive(id, active) {

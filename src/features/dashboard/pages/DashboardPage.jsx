@@ -1,24 +1,28 @@
 import {useEffect, useMemo, useState} from "react";
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpDown, ArrowUpRight, CheckCircle2,
-  ChevronLeft, ChevronRight, Leaf, Minimize2, Package, X,
+  AlertTriangle, ArrowRight, ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight,
+  CircleAlert, Minimize2, Package, PackageCheck, Truck, Warehouse, X,
 } from "lucide-react";
 import {loadCatalog, loadInventoryAdditionTransactions} from "../../inventory/api/catalogRepository";
 import {
   inventoryDashboardSummary, quantityUnitLabel, sortCatalogItems, stockStatus,
 } from "../../inventory/catalogModel";
 import {FornoFox} from "../../../shared/branding/FornoBrand";
+import {IngredientIcon} from "../../inventory/ingredientIcons";
 
-function StatCard({label, value, detail, icon: Icon, tone, trend}) {
-  return <div className="stat-card">
-    <div className={`stat-icon ${tone}`}><Icon size={20}/></div>
-    <div className="stat-meta"><span>{label}</span><strong>{value}</strong>
-      <p className={trend === "down" ? "good" : trend === "up" ? "warn" : ""}>
-        {trend === "down" ? <ArrowDownRight size={14}/> : null}
-        {trend === "up" ? <ArrowUpRight size={14}/> : null}{detail}
-      </p>
-    </div>
-  </div>;
+function StatCard({label, value, detail, icon: Icon, tone, onClick, progress}) {
+  return <button type="button" className={`stat-card is-${tone}`} onClick={onClick}>
+    <span className="stat-card-top">
+      <span className={`stat-icon ${tone}`}><Icon size={18}/></span>
+      <span className="stat-card-label">{label}</span>
+      <ArrowRight className="stat-card-arrow" size={15}/>
+    </span>
+    <strong className="stat-card-value">{value}</strong>
+    <span className="stat-card-detail">{detail}</span>
+    {progress != null && <span className="stat-card-progress" aria-hidden="true">
+      <i style={{width: `${Math.max(0, Math.min(100, progress))}%`}}/>
+    </span>}
+  </button>;
 }
 
 function StockBadge({item}) {
@@ -195,6 +199,9 @@ export default function DashboardPage({onNavigate}) {
   const metricValue = (value, suffix = "") => catalogLoading || catalogError ? "—" : `${value}${suffix}`;
   const metricDetail = (value) => catalogLoading ? "Cargando inventario…"
     : catalogError ? "No se pudo actualizar" : value;
+  const healthyCoverage = summary.activeProducts
+    ? Math.round(summary.healthyProducts / summary.activeProducts * 100)
+    : 0;
 
   return <>
     <section className="service-banner">
@@ -202,18 +209,33 @@ export default function DashboardPage({onNavigate}) {
       <div>FORNO <br/><span> SAN BENITO </span></div>
       <div className="banner-status"><i/><span>Próximo servicio</span><strong>6:00 PM</strong></div>
     </section>
+    <section className="dashboard-overview-head">
+      <div><span className="eyebrow">RESUMEN OPERATIVO</span><h2>Estado del inventario</h2>
+        <p>Prioridades y cobertura de los ingredientes activos.</p></div>
+      <button className="text-btn" onClick={() => onNavigate("inventory")}>
+        Abrir inventario <ArrowRight size={15}/></button>
+    </section>
     <section className="dashboard-stock-summary">
-      <StatCard label="Stock por reponer"
-        value={metricValue(summary.restockProducts,
-          summary.restockProducts === 1 ? " producto" : " productos")}
-        detail={metricDetail(`${summary.criticalProducts} ${summary.criticalProducts === 1
-          ? "requiere" : "requieren"} atención hoy`)}
-        icon={AlertTriangle} tone="gold"/>
+      <StatCard label="Por reponer" value={metricValue(summary.restockProducts)}
+        detail={metricDetail(`${summary.lowProducts} bajos · ${summary.criticalProducts} críticos`)}
+        icon={Truck} tone="gold" onClick={() => onNavigate("shopping")}/>
+      <StatCard label="Críticos" value={metricValue(summary.criticalProducts)}
+        detail={metricDetail(summary.criticalProducts
+          ? "Llegaron al punto de reorden" : "Sin urgencias en este momento")}
+        icon={CircleAlert} tone="clay" onClick={() => onNavigate("inventory")}/>
+      <StatCard label="Sin existencia" value={metricValue(summary.productsWithoutExistence)}
+        detail={metricDetail(`de ${summary.activeProducts} ingredientes activos`)}
+        icon={Warehouse} tone="blue" onClick={() => onNavigate("inventory")}/>
+      <StatCard label="Cobertura saludable" value={metricValue(healthyCoverage, "%")}
+        detail={metricDetail(`${summary.healthyProducts} ingredientes en nivel óptimo`)}
+        icon={PackageCheck} tone="green" progress={healthyCoverage}
+        onClick={() => onNavigate("inventory")}/>
     </section>
     <section className="dashboard-grid">
       <div className="panel attention-panel">
         <div className="panel-head">
-          <div><h2>Necesita atención</h2><p>Productos próximos a agotarse</p></div>
+          <div><span className="panel-kicker">PRIORIDAD</span><h2>Necesita atención</h2>
+            <p>Ordenado por urgencia de reposición</p></div>
           <button className="text-btn" onClick={() => onNavigate("inventory")}>
             Ver todos <ChevronRight size={15}/></button>
         </div>
@@ -224,14 +246,17 @@ export default function DashboardPage({onNavigate}) {
               <AlertTriangle size={18}/>No se pudo cargar el inventario.</div>
               : attentionItems.length ? attentionItems.slice(0, 4).map((item) =>
                 <div className="attention-row" key={item.id}>
-                  <div className="food-icon"><Leaf size={17}/></div>
+                  <div className="food-icon"><IngredientIcon iconKey={item.icon_key}
+                    iconEmoji={item.icon_emoji} size={17}/></div>
                   <div className="attention-info"><strong>{item.name}</strong>
-                    <span>{Number(item.quantity).toLocaleString("es-SV")}{" "}
-                      {quantityUnitLabel(item.base_unit, item.quantity)} disponibles</span>
+                    <span><b>{Number(item.quantity).toLocaleString("es-SV")}{" "}
+                      {quantityUnitLabel(item.base_unit, item.quantity)}</b> disponibles · ideal{" "}
+                      {Number(item.par_level).toLocaleString("es-SV")}</span>
                     <div className="stock-line"><i style={{width: `${Math.min(100,
                       Number(item.par_level) > 0
                         ? Number(item.quantity) / Number(item.par_level) * 100 : 0)}%`}}/></div>
-                  </div><StockBadge item={item}/>
+                  </div><div className="attention-row-end"><StockBadge item={item}/>
+                    <small>Reorden: {Number(item.reorder_point).toLocaleString("es-SV")}</small></div>
                 </div>)
                 : <div className="dashboard-attention-state healthy"><CheckCircle2 size={18}/>
                   Todo el inventario está en buen nivel.</div>}

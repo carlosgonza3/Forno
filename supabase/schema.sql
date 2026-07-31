@@ -45,6 +45,14 @@ create table public.inventory_items (
   unit_cost numeric(14,4) not null default 0 check (unit_cost >= 0),
   package_size numeric(14,3) check (package_size > 0),
   package_unit text,
+  icon_key text check (
+    icon_key is null
+    or icon_key in (
+      'produce', 'fruit', 'herbs', 'meat', 'seafood', 'dairy', 'eggs',
+      'grains', 'berries', 'prepared', 'bakery', 'beverages', 'wine', 'packaged'
+    )
+  ),
+  icon_emoji text check (icon_emoji is null or char_length(icon_emoji) between 1 and 32),
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

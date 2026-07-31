@@ -25,19 +25,27 @@ describe("shopping model", () => {
         expect(suggestedPurchaseQuantity(item({quantity: 12}))).toBe(0);
     });
 
-    it("uses the reorder point as the trigger and the ideal level as the purchase target", () => {
+    it("uses the derived low threshold as the trigger and the ideal level as the purchase target", () => {
         const items = buildShoppingItems([
-            item(),
-            item({id: "equal", quantity: 5}),
+            item({id: "below-low", quantity: 5.5}),
+            item({id: "equal-low", quantity: 6}),
             item({id: "inactive", active: false}),
             item({id: "zero-reorder", quantity: 0, reorder_point: 0}),
-            item({id: "above-reorder", quantity: 6}),
+            item({id: "above-low", quantity: 6.001}),
             item({id: "no-purchase-needed", quantity: 0, par_level: 0, reorder_point: 0}),
         ]);
-        expect(items.map((entry) => entry.id)).toEqual(["item-1", "equal", "zero-reorder"]);
-        expect(items[0].purchaseQuantity).toBe(8);
-        expect(items[1].purchaseQuantity).toBe(5);
+        expect(items.map((entry) => entry.id)).toEqual(["below-low", "equal-low", "zero-reorder"]);
+        expect(items[0].purchaseQuantity).toBe(4.5);
+        expect(items[1].purchaseQuantity).toBe(4);
         expect(items[2].purchaseQuantity).toBe(10);
+    });
+
+    it("matches the client's 30 ideal, 10 reorder, and 14 low boundary", () => {
+        expect(buildShoppingItems([
+            item({id: "healthy", par_level: 30, reorder_point: 10, quantity: 15}),
+            item({id: "low", par_level: 30, reorder_point: 10, quantity: 14}),
+            item({id: "critical", par_level: 30, reorder_point: 10, quantity: 10}),
+        ]).map((entry) => entry.id)).toEqual(["low", "critical"]);
     });
 
     it("applies persisted team decisions", () => {
@@ -81,6 +89,22 @@ describe("shopping model", () => {
 
     it("excludes ingredients that are already on a pending purchase list", () => {
         expect(buildShoppingItems([item()], [], ["item-1"])).toEqual([]);
+    });
+
+    it("can include healthy ingredients for a resupply created from scratch", () => {
+        const results = buildShoppingItems([
+            item({id: "recommended", quantity: 2}),
+            item({id: "healthy", quantity: 12}),
+        ], [], [], {includeAll: true});
+
+        expect(results).toHaveLength(2);
+        expect(results[0]).toMatchObject({id: "recommended", recommended: true, included: true});
+        expect(results[1]).toMatchObject({
+            id: "healthy",
+            recommended: false,
+            included: false,
+            purchaseQuantity: 0,
+        });
     });
 
     it("filters and groups purchase items using inventory relations", () => {

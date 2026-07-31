@@ -1,6 +1,63 @@
 /* Inventory activity is grouped by each saved stock transaction. */
+.dashboard-stock-summary .stat-card {
+    min-height: 154px;
+    padding: 16px;
+    gap: 0
+}
+
+.dashboard-stock-summary .stat-icon {
+    width: 32px;
+    height: 32px
+}
+
+.attention-panel {
+    border-color: color-mix(in srgb, var(--line) 88%, transparent);
+    box-shadow: 0 1px 2px rgba(43, 34, 29, .03), 0 9px 24px rgba(43, 34, 29, .045)
+}
+
 .inventory-activity-card {
     transition: grid-column .2s ease, box-shadow .2s ease, min-height .2s ease
+}
+
+@media (max-width: 1100px) {
+    .dashboard-stock-summary {
+        grid-template-columns:repeat(2, minmax(0, 1fr))
+    }
+}
+
+@media (max-width: 620px) {
+    .dashboard-overview-head {
+        align-items: flex-start;
+        flex-direction: column
+    }
+
+    .dashboard-stock-summary {
+        grid-template-columns:1fr 1fr;
+        gap: 8px
+    }
+
+    .dashboard-stock-summary .stat-card {
+        min-height: 142px;
+        padding: 13px
+    }
+
+    .stat-card-value {
+        font-size: 25px
+    }
+
+    .stat-card-detail {
+        font-size: 8px
+    }
+
+    .attention-row-end small {
+        display: none
+    }
+}
+
+@media (max-width: 420px) {
+    .dashboard-stock-summary {
+        grid-template-columns:1fr
+    }
 }
 
 .inventory-activity-card[role="button"] {
@@ -315,4 +372,3 @@ html[data-theme="dark"] .inventory-transaction-dialog .subtraction-pill {
         max-height: calc(100dvh - 280px)
     }
 }
-

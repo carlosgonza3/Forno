@@ -21,6 +21,7 @@ export const UNIT_OPTIONS = [
 ];
 
 const UNIT_LABELS = Object.fromEntries(UNIT_OPTIONS);
+export const LOW_STOCK_PROGRESS = 0.8;
 const PLURAL_UNIT_LABELS = {
   unidad: "Unidades",
   g: "Gramos (g)",
@@ -54,13 +55,21 @@ export function quantityUnitLabel(unit, quantity) {
   return label === "—" || label.toLocaleLowerCase("es").endsWith("s") ? label : `${label}s`;
 }
 
+export function lowStockThreshold(item, progress = LOW_STOCK_PROGRESS) {
+  const ideal = Number(item.par_level);
+  const reorder = Number(item.reorder_point);
+  if (!Number.isFinite(ideal) || !Number.isFinite(reorder)) return 0;
+  const normalizedProgress = Math.min(1, Math.max(0, Number(progress)));
+  return ideal - normalizedProgress * (ideal - reorder);
+}
+
 export function stockStatus(item) {
   const quantity = Number(item.quantity);
   const reorder = Number(item.reorder_point);
   const par = Number(item.par_level);
   if (par <= 0 && reorder <= 0) return { key: "neutral", label: "Sin niveles" };
   if (quantity <= reorder) return { key: "critical", label: "Crítico" };
-  if (par > 0 && quantity / par < 0.7) return { key: "low", label: "Bajo" };
+  if (par > reorder && quantity <= lowStockThreshold(item)) return { key: "low", label: "Bajo" };
   return { key: "healthy", label: "Óptimo" };
 }
 
@@ -77,6 +86,9 @@ export function inventoryDashboardSummary(items = [], suppliers = []) {
     activeItems,
     activeProducts: activeItems.length,
     criticalProducts: counts.critical,
+    lowProducts: counts.low,
+    healthyProducts: counts.healthy,
+    neutralProducts: counts.neutral,
     restockProducts: counts.critical + counts.low,
     productsWithExistence: counts.withExistence,
     productsWithoutExistence: activeItems.length - counts.withExistence,

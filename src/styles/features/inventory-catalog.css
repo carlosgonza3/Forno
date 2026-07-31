@@ -26,10 +26,6 @@
     margin-left: auto
 }
 
-.catalog-refresh-button {
-    flex: 0 0 auto
-}
-
 .admin-badge {
     display: flex;
     align-items: center;
@@ -127,11 +123,138 @@
     margin: 0 17px 9px auto
 }
 
+.catalog-expand-button {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    transition: border-color .16s, background .16s, color .16s
+}
+
+.catalog-expand-button:hover,
+.catalog-expand-button[aria-pressed="true"] {
+    border-color: color-mix(in srgb, var(--accent) 36%, var(--line));
+    background: var(--accent-soft);
+    color: var(--accent-text)
+}
+
+.catalog-expand-button:focus-visible {
+    outline: 3px solid var(--accent-ring);
+    outline-offset: 2px
+}
+
+.catalog-panel.is-table-expanded {
+    position: fixed;
+    inset: 12px;
+    z-index: 45;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgba(31, 23, 19, .24)
+}
+
+.catalog-panel.is-table-expanded::before {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: rgba(34, 25, 21, .3);
+    content: "";
+    backdrop-filter: blur(2px)
+}
+
+.catalog-panel.is-table-expanded .inventory-table-stage,
+.catalog-panel.is-table-expanded > .table-wrap {
+    min-height: 0;
+    flex: 1;
+    overflow: auto
+}
+
+.catalog-panel.is-table-expanded .inventory-groups {
+    min-height: 100%
+}
+
+.catalog-panel.is-table-expanded .catalog-items-data-table,
+.catalog-panel.is-table-expanded .table-wrap {
+    max-height: none;
+    min-height: 0
+}
+
+.catalog-panel.is-table-expanded .catalog-items-data-table {
+    height: 100%
+}
+
 .catalog-create-button {
     flex: 0 0 auto
 }
 
+.catalog-item-create-row {
+    display: flex;
+    justify-content: flex-start;
+    padding: 12px 17px 0;
+    background: color-mix(in srgb, var(--paper) 92%, var(--line) 8%)
+}
+
 .catalog-inactive-toggle {
+    flex: 0 0 auto
+}
+
+.catalog-data-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 17px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--paper) 92%, var(--line) 8%)
+}
+
+.catalog-data-toolbar .search-box {
+    min-width: 190px;
+    flex: 1
+}
+
+.catalog-data-toolbar .ui-menubar {
+    flex: 0 1 auto
+}
+
+.catalog-data-toolbar .ui-menubar-trigger {
+    height: 48px;
+    align-items: center;
+    padding-inline: 10px
+}
+
+.catalog-menubar-trigger-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    line-height: 1.1
+}
+
+.catalog-menubar-trigger-copy > span {
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 750
+}
+
+.catalog-data-toolbar .catalog-menubar-trigger-copy > strong {
+    width: 100%;
+    max-width: 104px;
+    color: var(--ink);
+    font-size: 10px;
+    line-height: 1.2
+}
+
+.catalog-data-toolbar .reset-filters {
     flex: 0 0 auto
 }
 
@@ -173,6 +296,96 @@
     max-height: calc(100vh - 390px);
     min-height: 300px
 }
+
+.catalog-items-data-table {
+    max-height: calc(100vh - 390px);
+    min-height: 300px;
+    overflow: auto
+}
+
+.catalog-items-data-table .ui-table {
+    min-width: 650px
+}
+
+.catalog-items-data-table .ui-table-head {
+    position: sticky;
+    top: 0;
+    z-index: 2
+}
+
+.catalog-items-data-table .ui-table-head:first-child {
+    width: 48%
+}
+
+.catalog-items-data-table .ui-table-head:last-child,
+.catalog-items-data-table .ui-table-cell:last-child {
+    width: 76px
+}
+
+.catalog-table-product > div:last-child,
+.catalog-stock-brief {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px
+}
+
+.catalog-table-product span,
+.catalog-stock-brief span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.catalog-table-icon-trigger {
+    width: 35px;
+    height: 35px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    color: var(--ink);
+    background: #f1eee7;
+    cursor: pointer
+}
+
+.catalog-table-icon-trigger:hover {
+    color: var(--accent-text);
+    background: var(--accent-soft)
+}
+
+.catalog-table-icon-trigger:disabled {
+    cursor: wait;
+    opacity: .55
+}
+
+.catalog-stock-brief strong {
+    color: var(--ink);
+    font-size: 11px
+}
+
+.catalog-status-badge > span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor
+}
+
+.catalog-status-badge.is-healthy {
+    border-color: #c8dfce;
+    color: #3f7650;
+    background: #edf6ef
+}
+
+.catalog-status-badge.is-neutral {
+    color: var(--muted);
+    background: color-mix(in srgb, var(--paper) 65%, var(--line) 35%)
+}
+
+.catalog-row-actions {
+    justify-content: flex-end
+}
+
 
 .catalog-panel .table-wrap th {
     position: sticky;
@@ -294,7 +507,223 @@
     grid-column: 1/-1
 }
 
+.ingredient-name-input {
+    height: 42px
+}
+
+.ingredient-name-input .ui-input-group-input {
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent
+}
+
+.ingredient-name-input .ingredient-icon-addon {
+    cursor: default
+}
+
+.ingredient-icon-trigger {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 7px;
+    color: var(--accent-text);
+    background: var(--accent-soft)
+}
+
+.ingredient-icon-trigger:hover {
+    background: color-mix(in srgb, var(--accent-soft) 74%, var(--accent) 26%)
+}
+
+.ingredient-icon-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px
+}
+
+.ingredient-icon-popover {
+    width: min(350px, calc(100vw - 24px))
+}
+
+.ingredient-icon-popover-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 13px 8px
+}
+
+.ingredient-icon-popover-head strong {
+    font-size: 11px
+}
+
+.ingredient-icon-popover-head small {
+    color: #a67520;
+    font-size: 8px;
+    font-weight: 700
+}
+
+.ingredient-icon-tabs {
+    display: flex;
+    padding-inline: 4px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper)
+}
+
+.ingredient-icon-tabs button {
+    min-height: 34px;
+    padding: 0 11px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 750
+}
+
+.ingredient-icon-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px
+}
+
+.ingredient-icon-tabs button[aria-selected="true"] {
+    border-bottom-color: var(--accent);
+    color: var(--accent-text)
+}
+
+.ingredient-icon-search {
+    width: auto;
+    height: 42px;
+    margin: 10px 12px;
+    border-color: #ded4ca;
+    border-radius: 8px;
+    background: #fff
+}
+
+.ingredient-icon-search .ui-input-group-input {
+    color: var(--ink)
+}
+
+.ingredient-icon-results {
+    max-height: 154px;
+    overflow-y: auto;
+    margin: 0 12px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper)
+}
+
+.ingredient-icon-results label {
+    min-height: 42px;
+    display: grid;
+    grid-template-columns:30px minmax(0, 1fr) 16px;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 11px;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+    color: var(--muted);
+    cursor: pointer
+}
+
+.ingredient-icon-results label:last-child {
+    border-bottom: 0
+}
+
+.ingredient-icon-results label:hover,
+.ingredient-icon-results label.selected {
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--paper) 78%, var(--accent-soft) 22%)
+}
+
+.ingredient-icon-results input {
+    position: absolute;
+    opacity: 0
+}
+
+.ingredient-icon-results label:focus-within {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: -2px
+}
+
+.ingredient-icon-results label > span {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--paper) 65%, var(--line) 35%)
+}
+
+.ingredient-icon-results label > strong {
+    color: inherit;
+    font-size: 10px
+}
+
+.ingredient-icon-results label > svg {
+    color: var(--accent)
+}
+
+.ingredient-icon-empty {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 9px
+}
+
+.ingredient-emoji {
+    display: inline-grid;
+    place-items: center;
+    font-style: normal;
+    line-height: 1
+}
+
+.ingredient-emoji-panel {
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 10px 10px;
+    background: var(--paper)
+}
+
+.ingredient-emoji-panel .EmojiPickerReact {
+    --epr-bg-color: #fff;
+    --epr-category-label-bg-color: #fff;
+    --epr-text-color: #6f6862;
+    --epr-search-input-bg-color: #fff;
+    --epr-search-input-bg-color-active: #fff;
+    --epr-search-input-text-color: #2f2925;
+    --epr-search-input-placeholder-color: #827a74;
+    --epr-search-border-color: #ded4ca;
+    --epr-search-border-color-active: #9f3026;
+    --epr-search-input-border-radius: 8px;
+    --epr-search-input-height: 42px;
+    --epr-hover-bg-color: var(--accent-soft);
+    --epr-focus-bg-color: var(--accent-soft);
+    border: 0 !important;
+    border-radius: 0 0 10px 10px !important
+}
+
+.ingredient-emoji-loading {
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 10px
+}
+
 .catalog-field span {
+    color: #514943;
+    font-size: 11px;
+    font-weight: 700
+}
+
+.catalog-field > label {
     color: #514943;
     font-size: 11px;
     font-weight: 700
@@ -381,6 +810,101 @@
     margin-top: 20px
 }
 
+.sheet-overlay {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    background: rgba(24, 30, 25, .62);
+    backdrop-filter: blur(4px);
+    transition: opacity .2s ease
+}
+
+.sheet-overlay[data-starting-style],
+.sheet-overlay[data-ending-style] {
+    opacity: 0
+}
+
+.sheet-viewport {
+    position: fixed;
+    z-index: 101;
+    inset: 0;
+    display: flex;
+    justify-content: flex-end;
+    pointer-events: none
+}
+
+.sheet-content {
+    position: relative;
+    pointer-events: auto;
+    width: min(560px, 100vw);
+    height: 100%;
+    border-left: 1px solid var(--line);
+    background: #fffefa;
+    color: var(--ink);
+    box-shadow: -20px 0 60px rgba(0, 0, 0, .2);
+    transition: transform .25s ease
+}
+
+.sheet-content-right[data-starting-style],
+.sheet-content-right[data-ending-style] {
+    transform: translateX(100%)
+}
+
+.sheet-close {
+    position: absolute;
+    top: 18px;
+    right: 18px
+}
+
+.ingredient-sheet-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%
+}
+
+.sheet-header {
+    padding: 30px 64px 22px 30px;
+    border-bottom: 1px solid var(--line)
+}
+
+.sheet-title {
+    margin: 7px 0 6px;
+    font: 800 22px Manrope;
+    color: var(--ink)
+}
+
+.sheet-description {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.55
+}
+
+.ingredient-sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 26px 30px
+}
+
+.sheet-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+    padding: 18px 30px;
+    border-top: 1px solid var(--line);
+    background: #fffefa
+}
+
+html[data-theme="dark"] .sheet-content,
+html[data-theme="dark"] .sheet-footer {
+    border-color: var(--line);
+    background: var(--paper)
+}
+
+html[data-theme="dark"] .sheet-overlay {
+    background: rgba(5, 3, 2, .72)
+}
+
 @media (max-width: 900px) {
     .catalog-heading {
         align-items: flex-start;
@@ -432,6 +956,35 @@
 
     .catalog-field.wide {
         grid-column: auto
+    }
+
+}
+
+@media (max-width: 600px) {
+    .sheet-content {
+        width: 100vw
+    }
+
+    .sheet-header {
+        padding: 24px 58px 18px 20px
+    }
+
+    .ingredient-sheet-body {
+        padding: 22px 20px
+    }
+
+    .sheet-footer {
+        padding: 14px 20px
+    }
+
+    .catalog-panel.is-table-expanded {
+        inset: 0;
+        border: 0;
+        border-radius: 0
+    }
+
+    .catalog-expand-button span {
+        display: none
     }
 }
 
@@ -558,6 +1111,7 @@
 
 .inventory-results-bar > div {
     display: flex;
+    align-items: center;
     gap: 4px
 }
 
@@ -573,6 +1127,17 @@
 
 .inventory-results-bar button:hover {
     background: #f7eae5
+}
+
+.inventory-results-bar .inventory-groups-toggle {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--muted)
 }
 
 .inventory-results-bar .inventory-export-button {
@@ -841,7 +1406,7 @@
     position: relative;
     display: grid;
     grid-template-columns: 32px minmax(0, 1fr);
-    padding: 0 14px 12px 20px;
+    padding: 12px 14px 12px 20px;
     background: #f7f3ed
 }
 
@@ -952,7 +1517,7 @@
 
     .inventory-subgroup {
         grid-template-columns: 18px minmax(0, 1fr);
-        padding: 0 7px 9px 10px
+        padding: 9px 7px 9px 10px
     }
 
     .inventory-subgroup-rail::before {
@@ -1204,6 +1769,24 @@
     .global-view-button {
         margin-left: auto
     }
+
+    .catalog-data-toolbar {
+        align-items: stretch;
+        flex-wrap: wrap
+    }
+
+    .catalog-data-toolbar .search-box {
+        flex-basis: 100%
+    }
+
+    .catalog-data-toolbar .ui-menubar {
+        width: 100%;
+        overflow-x: auto
+    }
+
+    .catalog-data-toolbar .catalog-menubar-trigger-copy > strong {
+        display: none
+    }
 }
 
 /* Table view controls */
@@ -1230,4 +1813,3 @@
 .inventory-table-stage {
     min-height: 280px
 }
-
