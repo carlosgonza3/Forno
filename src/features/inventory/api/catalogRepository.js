@@ -135,14 +135,21 @@ export async function setInventoryExistences(entries) {
   return result.data ?? [];
 }
 
-export async function loadInventoryAdditionTransactions({ page = 0, pageSize = 5 } = {}) {
+export async function loadInventoryAdditionTransactions({
+  page = 0,
+  pageSize = 5,
+  dateFrom = null,
+  dateTo = null,
+} = {}) {
   const client = requireClient();
   const from = page * pageSize;
-  const transactionsResult = await client
+  let transactionsQuery = client
     .from("inventory_addition_transactions")
     .select("id, created_by, item_count, created_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(from, from + pageSize - 1);
+    .order("created_at", { ascending: false });
+  if (dateFrom) transactionsQuery = transactionsQuery.gte("created_at", dateFrom);
+  if (dateTo) transactionsQuery = transactionsQuery.lt("created_at", dateTo);
+  const transactionsResult = await transactionsQuery.range(from, from + pageSize - 1);
   throwIfError(transactionsResult.error);
 
   const transactions = transactionsResult.data ?? [];

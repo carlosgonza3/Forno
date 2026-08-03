@@ -126,6 +126,9 @@ describe("CatalogPage inventory explorer", () => {
     expect(await screen.findByText("Pesto")).toBeInTheDocument();
     expect(screen.queryByText("Tomate")).not.toBeInTheDocument();
     expect(screen.getByText(/500/)).toBeInTheDocument();
+    expect(screen.queryByRole("menubar", {name: "Opciones de tabla"})).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", {name: "Buscar ingrediente"})).toBeInTheDocument();
+    expect(document.querySelector(".inventory-results-bar")).not.toBeInTheDocument();
   });
 
   it("updates processed-item existences through the separate processed inventory workflow", async () => {
@@ -175,6 +178,11 @@ describe("CatalogPage inventory explorer", () => {
     expect(createButton.closest(".catalog-item-create-row")?.nextElementSibling)
       .toHaveClass("catalog-data-toolbar");
     expect(createButton.closest(".catalog-tools")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: "Proveedores"}));
+    const supplierButton = screen.getByRole("button", {name: /^Proveedor$/});
+    expect(supplierButton.closest(".catalog-item-create-row")?.nextElementSibling)
+      .toHaveClass("catalog-data-toolbar");
   });
 
   it("uses one clear inventory unit without package fields in the ingredient editor", async () => {

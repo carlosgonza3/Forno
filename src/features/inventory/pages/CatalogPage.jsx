@@ -335,6 +335,7 @@ export default function CatalogPage() {
                         setQuery("");
                         resetItemFilters();
                         setGroupBy("none");
+                        setSortBy("name");
                     }}>Ingredientes Procesados
                     </button>
                     <button className={tab === "suppliers" ? "active" : ""} onClick={() => {
@@ -344,9 +345,6 @@ export default function CatalogPage() {
                     </button>
                 </div>
                 <div className="catalog-panel-actions">
-                    {isAdmin && tab === "suppliers" && <button className="primary-btn catalog-create-button"
-                        onClick={() => setSupplierDraft({...emptySupplier})}>
-                        <Plus size={17}/> Proveedor</button>}
                     <button type="button" className="catalog-expand-button"
                         aria-pressed={tableExpanded}
                         aria-label={tableExpanded ? "Restaurar vista de tabla" : "Expandir tabla"}
@@ -357,10 +355,14 @@ export default function CatalogPage() {
                     </button>
                 </div>
             </div>
-            {isAdmin && (tab === "items" || tab === "processed") && <div className="catalog-item-create-row">
-                <button className="primary-btn catalog-create-button" onClick={() => tab === "processed"
-                    ? setProcessedDraft({...emptyItem}) : setItemDraft({...emptyItem})}>
-                    <Plus size={17}/> {tab === "processed" ? "Ingrediente procesado" : "Ingrediente"}
+            {isAdmin && <div className="catalog-item-create-row">
+                <button className="primary-btn catalog-create-button" onClick={() => {
+                    if (tab === "processed") setProcessedDraft({...emptyItem});
+                    else if (tab === "suppliers") setSupplierDraft({...emptySupplier});
+                    else setItemDraft({...emptyItem});
+                }}>
+                    <Plus size={17}/> {tab === "processed" ? "Ingrediente procesado"
+                        : tab === "suppliers" ? "Proveedor" : "Ingrediente"}
                 </button>
             </div>}
             <div className="catalog-data-toolbar">
@@ -370,7 +372,7 @@ export default function CatalogPage() {
                     placeholder={`Buscar ${tab === "suppliers" ? "proveedor" : "ingrediente"}…`}/>
                     <InputGroupAddon><Search size={18}/></InputGroupAddon>
                 </InputGroup>
-                {tab === "items" || tab === "processed" ? <InventoryMenubar
+                {tab === "items" ? <InventoryMenubar
                     departments={catalog.departments}
                     suppliers={catalog.suppliers.filter((supplier) => supplier.active)}
                     departmentId={departmentId} onDepartmentChange={setDepartmentId}
@@ -383,14 +385,13 @@ export default function CatalogPage() {
                     stockFilter={stockFilter} onStockFilterChange={setStockFilter}
                     includeInactive={includeInactive} onIncludeInactiveChange={setIncludeInactive}
                     statusCounts={statusCounts} totalCount={scopedItems.length}/>
-                    : <label className="modern-switch catalog-inactive-toggle"><input type="checkbox"
+                    : tab === "suppliers" ? <label className="modern-switch catalog-inactive-toggle"><input type="checkbox"
                         checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)}/>
-                        <span className="switch-track"><i/></span><span>Inactivos</span></label>}
-                {(tab === "items" || tab === "processed") && hasItemFilters && <Button variant="ghost" size="sm"
+                        <span className="switch-track"><i/></span><span>Inactivos</span></label> : null}
+                {tab === "items" && hasItemFilters && <Button variant="ghost" size="sm"
                     className="reset-filters" onClick={resetItemFilters}><FilterX size={15}/>Limpiar</Button>}
             </div>
-
-            {(tab === "items" || tab === "processed") && <div className="inventory-results-bar">
+            {tab === "items" && <div className="inventory-results-bar">
                 <span> <strong>{items.length}</strong> de {catalogItems.filter((item) => item.active || includeInactive).length} ingredientes</span>
                 <div>{groupBy !== "none" && itemGroups.length > 0 && <button
                     className="inventory-groups-toggle" onClick={toggleAllGroups}

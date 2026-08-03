@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import {
   AlertTriangle, ArrowRight, ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight,
-  CircleAlert, Minimize2, Package, PackageCheck, Truck, Warehouse, X,
+  CalendarDays, CircleAlert, List, Maximize2, Minimize2, Package, PackageCheck, Truck, Warehouse, X,
 } from "lucide-react";
 import {loadCatalog, loadInventoryAdditionTransactions} from "../../inventory/api/catalogRepository";
 import {
@@ -69,11 +69,99 @@ function InventoryTransactionDialog({transaction, onClose}) {
   </div>;
 }
 
+function localDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function InventoryTransactionRow({transaction, onSelect, showDate = true}) {
+  const date = new Date(transaction.created_at);
+  return <button className="inventory-transaction-row" onClick={(event) => {
+    event.stopPropagation();
+    onSelect(transaction);
+  }}>
+    <i className="clay-dot"><ArrowUpDown size={13}/></i>
+    <span className="transaction-copy"><strong>Actualización de inventario</strong>
+      <small>{transaction.item_count} {transaction.item_count === 1
+        ? "ingrediente" : "ingredientes"} · {transaction.actor_name}</small></span>
+    <time title={date.toLocaleString("es-SV")}>
+      {showDate && <>{date.toLocaleDateString("es-SV", {day: "2-digit", month: "short"})} · </>}
+      {date.toLocaleTimeString("es-SV", {hour: "2-digit", minute: "2-digit"})}
+    </time><ChevronRight size={16}/>
+  </button>;
+}
+
+function InventoryActivityCalendar({month, transactions, selectedDay, onMonthChange, onDaySelect, onSelect}) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const dayCount = new Date(year, monthIndex + 1, 0).getDate();
+  const leadingDays = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+  const activityByDay = transactions.reduce((days, transaction) => {
+    const key = localDateKey(transaction.created_at);
+    const entries = days.get(key) ?? [];
+    entries.push(transaction);
+    days.set(key, entries);
+    return days;
+  }, new Map());
+  const cells = [...Array(leadingDays).fill(null), ...Array.from({length: dayCount}, (_, index) => index + 1)];
+  while (cells.length % 7) cells.push(null);
+  const selectedTransactions = selectedDay ? (activityByDay.get(selectedDay) ?? []) : [];
+  const selectedDate = selectedDay ? new Date(`${selectedDay}T12:00:00`) : null;
+
+  return <div className="inventory-activity-calendar" onClick={(event) => event.stopPropagation()}>
+    <div className="activity-calendar-head">
+      <button type="button" onClick={() => onMonthChange(new Date(year, monthIndex - 1, 1))}
+        aria-label="Mes anterior"><ChevronLeft size={16}/></button>
+      <strong>{month.toLocaleDateString("es-SV", {month: "long", year: "numeric"})}</strong>
+      <button type="button" onClick={() => onMonthChange(new Date(year, monthIndex + 1, 1))}
+        aria-label="Mes siguiente"><ChevronRight size={16}/></button>
+    </div>
+    <div className="activity-calendar-weekdays" aria-hidden="true">
+      {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => <span key={day}>{day}</span>)}
+    </div>
+    <div className="activity-calendar-grid" role="grid" aria-label="Calendario de actividad">
+      {cells.map((day, index) => {
+        if (!day) return <span className="activity-calendar-blank" key={`blank-${index}`}/>;
+        const date = new Date(year, monthIndex, day);
+        const key = localDateKey(date);
+        const activityCount = activityByDay.get(key)?.length ?? 0;
+        return <button type="button" key={key} className={selectedDay === key ? "selected" : ""}
+          aria-label={`${date.toLocaleDateString("es-SV", {day: "numeric", month: "long"})}${activityCount
+            ? `, ${activityCount} ${activityCount === 1 ? "actividad" : "actividades"}` : ", sin actividad"}`}
+          aria-pressed={selectedDay === key} onClick={() => onDaySelect(key)}>
+          <span>{day}</span>
+          {activityCount > 0 && (
+            <i title={`${activityCount} actividades`}/>
+          )}
+        </button>;
+      })}
+    </div>
+    <div className="activity-calendar-selection">
+      <div><strong>{selectedDate ? selectedDate.toLocaleDateString("es-SV", {
+        weekday: "long", day: "numeric", month: "long",
+      }) : "Selecciona un día"}</strong>
+        <span>{selectedDay ? `${selectedTransactions.length} ${selectedTransactions.length === 1
+          ? "actividad" : "actividades"}` : "Verás aquí toda la actividad de esa fecha."}</span></div>
+      {selectedDay && <div className="inventory-transaction-list calendar-day-list">
+        {selectedTransactions.length ? selectedTransactions.map((transaction) =>
+          <InventoryTransactionRow key={transaction.id} transaction={transaction} onSelect={onSelect} showDate={false}/>)
+          : <div className="activity-empty"><Package size={22}/><span>No hubo actividad este día.</span></div>}
+      </div>}
+    </div>
+  </div>;
+}
+
 function RecentInventoryActivity() {
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [view, setView] = useState("list");
+  const [month, setMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const pageSize = expanded ? 10 : 5;
@@ -82,7 +170,13 @@ function RecentInventoryActivity() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    loadInventoryAdditionTransactions({page, pageSize})
+    const request = view === "calendar" ? {
+      page: 0,
+      pageSize: 1000,
+      dateFrom: new Date(month.getFullYear(), month.getMonth(), 1).toISOString(),
+      dateTo: new Date(month.getFullYear(), month.getMonth() + 1, 1).toISOString(),
+    } : {page, pageSize};
+    loadInventoryAdditionTransactions(request)
       .then((result) => {
         if (!active) return;
         setTransactions(result.transactions);
@@ -99,7 +193,19 @@ function RecentInventoryActivity() {
     return () => {
       active = false;
     };
-  }, [page, pageSize]);
+  }, [month, page, pageSize, view]);
+
+  function changeView(nextView) {
+    setView(nextView);
+    setPage(0);
+  }
+
+  function changeMonth(nextMonth) {
+    setMonth(nextMonth);
+    const today = new Date();
+    setSelectedDay(nextMonth.getFullYear() === today.getFullYear()
+      && nextMonth.getMonth() === today.getMonth() ? localDateKey(today) : null);
+  }
 
   function expandCard() {
     if (expanded) return;
@@ -114,43 +220,38 @@ function RecentInventoryActivity() {
   }
 
   return <>
-    <div className={`panel activity-panel inventory-activity-card ${expanded ? "is-expanded" : ""}`}
-      onClick={expandCard} role={!expanded ? "button" : undefined}
-      tabIndex={!expanded ? 0 : undefined}
-      onKeyDown={(event) => {
-        if (event.currentTarget === event.target && !expanded
-          && (event.key === "Enter" || event.key === " ")) expandCard();
-      }}>
+    <div className={`panel activity-panel inventory-activity-card ${expanded ? "is-expanded" : ""}`}>
       <div className="panel-head">
         <div><h2>Actividad de inventario</h2><p>{total} {total === 1
-          ? "transacción registrada" : "transacciones registradas"}</p></div>
-        {expanded ? <button className="activity-collapse-button" onClick={collapseCard}>
-          <Minimize2 size={15}/>Contraer</button>
-          : <span className="activity-expand-hint">Presiona para ampliar <ChevronRight size={14}/></span>}
+          ? "transacción registrada" : view === "calendar"
+            ? "transacciones en el mes" : "transacciones registradas"}</p></div>
+        <div className="activity-panel-actions" onClick={(event) => event.stopPropagation()}>
+          <div className="activity-view-switch" role="group" aria-label="Vista de actividad">
+            <button type="button" className={view === "list" ? "active" : ""}
+              aria-pressed={view === "list"} onClick={() => changeView("list")}>
+              <List size={14}/>Lista</button>
+            <button type="button" className={view === "calendar" ? "active" : ""}
+              aria-pressed={view === "calendar"} onClick={() => changeView("calendar")}>
+              <CalendarDays size={14}/>Calendario</button>
+          </div>
+          {expanded ? <button className="activity-collapse-button" onClick={collapseCard}>
+            <Minimize2 size={15}/>Contraer</button>
+            : <button className="activity-expand-button" onClick={expandCard}>
+              <Maximize2 size={15}/>Expandir</button>}
+        </div>
       </div>
-      <div className="inventory-transaction-list">
+      {view === "calendar" ? (loading ? <div className="activity-loading"><div className="state-spinner"/>
+        <span>Cargando calendario…</span></div> : <InventoryActivityCalendar month={month}
+          transactions={transactions} selectedDay={selectedDay} onMonthChange={changeMonth}
+          onDaySelect={setSelectedDay} onSelect={setSelected}/>) : <div className="inventory-transaction-list">
         {loading ? <div className="activity-loading"><div className="state-spinner"/>
           <span>Cargando actividad…</span></div>
-          : transactions.length ? transactions.map((transaction) => {
-            const date = new Date(transaction.created_at);
-            return <button className="inventory-transaction-row" key={transaction.id}
-              onClick={(event) => {
-                event.stopPropagation();
-                setSelected(transaction);
-              }}>
-              <i className="clay-dot"><ArrowUpDown size={13}/></i>
-              <span className="transaction-copy"><strong>Actualización de inventario</strong>
-                <small>{transaction.item_count} {transaction.item_count === 1
-                  ? "ingrediente" : "ingredientes"} · {transaction.actor_name}</small></span>
-              <time title={date.toLocaleString("es-SV")}>
-                {date.toLocaleDateString("es-SV", {day: "2-digit", month: "short"})} ·{" "}
-                {date.toLocaleTimeString("es-SV", {hour: "2-digit", minute: "2-digit"})}
-              </time><ChevronRight size={16}/>
-            </button>;
-          }) : <div className="activity-empty"><Package size={22}/>
+          : transactions.length ? transactions.map((transaction) =>
+            <InventoryTransactionRow key={transaction.id} transaction={transaction} onSelect={setSelected}/>)
+            : <div className="activity-empty"><Package size={22}/>
             <span>Aún no se han registrado actualizaciones.</span></div>}
-      </div>
-      {total > pageSize && <div className="activity-pagination"
+      </div>}
+      {view === "list" && total > pageSize && <div className="activity-pagination"
         onClick={(event) => event.stopPropagation()}>
         <button disabled={page === 0 || loading} onClick={() => setPage((current) => current - 1)}
           aria-label="Página anterior"><ChevronLeft size={15}/></button>

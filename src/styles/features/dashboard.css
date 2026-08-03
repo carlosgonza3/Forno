@@ -86,7 +86,7 @@
     font-size: 11px
 }
 
-.activity-expand-hint,
+.activity-expand-button,
 .activity-collapse-button {
     display: inline-flex;
     align-items: center;
@@ -97,6 +97,7 @@
     white-space: nowrap
 }
 
+.activity-expand-button,
 .activity-collapse-button {
     min-height: 34px;
     padding: 0 13px;
@@ -105,9 +106,187 @@
     background: var(--accent-soft)
 }
 
+.activity-expand-button:hover,
 .activity-collapse-button:hover {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent-soft) 75%, var(--accent) 25%)
+}
+
+.activity-panel-actions,
+.activity-view-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.activity-view-switch {
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--paper) 82%, var(--canvas) 18%)
+}
+
+.activity-view-switch button {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--muted);
+    background: transparent;
+    font-size: 10px;
+    font-weight: 700
+}
+
+.activity-view-switch button.active {
+    color: var(--accent-text);
+    background: var(--paper);
+    box-shadow: 0 1px 4px rgba(43, 34, 29, .1)
+}
+
+.inventory-activity-calendar {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: minmax(360px, .9fr) minmax(340px, 1.1fr);
+    column-gap: 24px;
+    align-items: start
+}
+
+.activity-calendar-head {
+    grid-column: 1;
+    display: grid;
+    grid-template-columns: 34px 1fr 34px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px
+}
+
+.activity-calendar-head strong {
+    text-align: center;
+    text-transform: capitalize;
+    font-size: 13px
+}
+
+.activity-calendar-head button {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--accent-text);
+    background: var(--paper)
+}
+
+.activity-calendar-weekdays,
+.activity-calendar-grid {
+    grid-column: 1;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px
+}
+
+.activity-calendar-weekdays {
+    margin-bottom: 5px
+}
+
+.activity-calendar-weekdays span {
+    padding: 5px 0;
+    color: var(--muted);
+    text-align: center;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase
+}
+
+.activity-calendar-grid button,
+.activity-calendar-blank {
+    min-height: 44px;
+    border-radius: 8px
+}
+
+.activity-calendar-grid button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--paper) 78%, var(--canvas) 22%);
+    font-size: 11px;
+    font-weight: 700
+}
+
+.activity-calendar-grid button:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+    background: var(--accent-soft)
+}
+
+.activity-calendar-grid button.selected {
+    border-color: var(--accent);
+    color: var(--accent-text);
+    background: var(--accent-soft)
+}
+
+.activity-calendar-grid button i {
+    position: absolute;
+    bottom: 6px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent)
+}
+
+.activity-calendar-selection {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    min-height: 332px;
+    padding-left: 24px;
+    border-left: 1px solid var(--line)
+}
+
+.inventory-activity-card:not(.is-expanded) .inventory-activity-calendar {
+    grid-template-columns: 1fr
+}
+
+.inventory-activity-card:not(.is-expanded) .activity-calendar-selection {
+    grid-column: 1;
+    grid-row: auto;
+    min-height: 0;
+    margin-top: 18px;
+    padding: 18px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0
+}
+
+.activity-calendar-selection > div:first-child {
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center
+}
+
+.activity-calendar-selection > div:first-child strong {
+    text-transform: capitalize;
+    font-size: 13px
+}
+
+.activity-calendar-selection > div:first-child span {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 10px
+}
+
+.calendar-day-list {
+    margin-top: 10px;
+    max-height: 285px;
+    overflow: auto
+}
+
+.calendar-day-list .activity-empty {
+    min-height: 210px
 }
 
 .inventory-transaction-list {
@@ -293,11 +472,22 @@ html[data-theme="dark"] .inventory-activity-card[role="button"]:hover {
     box-shadow: 0 14px 34px rgba(0, 0, 0, .28)
 }
 
+html[data-theme="dark"] .activity-expand-button,
 html[data-theme="dark"] .activity-collapse-button,
 html[data-theme="dark"] .activity-pagination button:hover:not(:disabled) {
     border-color: #75443c;
     background: var(--accent-soft);
     color: var(--accent-text)
+}
+
+html[data-theme="dark"] .activity-view-switch,
+html[data-theme="dark"] .activity-calendar-grid button {
+    background: color-mix(in srgb, var(--paper) 84%, var(--canvas) 16%)
+}
+
+html[data-theme="dark"] .activity-view-switch button.active {
+    color: var(--accent-text);
+    background: var(--accent-soft)
 }
 
 html[data-theme="dark"] .inventory-transaction-row:hover {
@@ -310,7 +500,7 @@ html[data-theme="dark"] .inventory-transaction-row {
     color: var(--ink)
 }
 
-html[data-theme="dark"] .activity-expand-hint,
+html[data-theme="dark"] .activity-expand-button,
 html[data-theme="dark"] .activity-pagination button {
     color: var(--accent-text)
 }
@@ -344,8 +534,32 @@ html[data-theme="dark"] .inventory-transaction-dialog .subtraction-pill {
 }
 
 @media (max-width: 600px) {
-    .activity-expand-hint {
-        display: none
+    .inventory-activity-card .panel-head {
+        align-items: flex-start;
+        gap: 10px
+    }
+
+    .activity-panel-actions {
+        align-items: flex-end;
+        flex-direction: column
+    }
+
+    .activity-view-switch button {
+        padding: 0 7px
+    }
+
+    .inventory-activity-calendar {
+        grid-template-columns: 1fr
+    }
+
+    .activity-calendar-selection {
+        grid-column: 1;
+        grid-row: auto;
+        min-height: 0;
+        margin-top: 18px;
+        padding: 18px 0 0;
+        border-top: 1px solid var(--line);
+        border-left: 0
     }
 
     .inventory-transaction-row {
