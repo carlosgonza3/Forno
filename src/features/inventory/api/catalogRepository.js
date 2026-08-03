@@ -17,6 +17,17 @@ const ITEM_SELECT = `
 `;
 const ICON_ONLY_ITEM_SELECT = ITEM_SELECT.replace("  icon_emoji,\n", "");
 const LEGACY_ITEM_SELECT = ICON_ONLY_ITEM_SELECT.replace("  icon_key,\n", "");
+const PROCESSED_ITEM_SELECT = `
+  id,
+  name,
+  sku,
+  base_unit,
+  quantity,
+  par_level,
+  reorder_point,
+  unit_cost,
+  active
+`;
 let iconFieldAvailable = true;
 let emojiFieldAvailable = true;
 
@@ -55,23 +66,61 @@ async function loadCatalogItems(client) {
 
 export async function loadCatalog() {
   const client = requireClient();
-  const [itemsResult, departmentsResult, suppliersResult] = await Promise.all([
+  const [itemsResult, processedItemsResult, departmentsResult, suppliersResult] = await Promise.all([
     loadCatalogItems(client),
+    client.from("processed_inventory_items").select(PROCESSED_ITEM_SELECT).order("name"),
     client.from("departments").select("id, name, sort_order").order("sort_order").order("name"),
     client.from("suppliers").select("id, name, email, phone, active").order("name"),
   ]);
 
   throwIfError(itemsResult.error);
+  throwIfError(processedItemsResult.error);
   throwIfError(departmentsResult.error);
   throwIfError(suppliersResult.error);
 
   return {
     items: itemsResult.data ?? [],
+    processedItems: processedItemsResult.data ?? [],
     departments: departmentsResult.data ?? [],
     suppliers: suppliersResult.data ?? [],
     iconFieldAvailable,
     emojiFieldAvailable,
   };
+}
+
+export async function setProcessedInventoryExistences(entries) {
+  const updates = entries.map((entry) => ({
+    item_id: entry.id,
+    new_quantity: Number(entry.newQuantity),
+    note: entry.note?.trim() || null,
+  }));
+  const result = await requireClient().rpc("set_processed_inventory_existences", {updates});
+  throwIfError(result.error);
+  return result.data ?? [];
+}
+
+export async function saveProcessedCatalogItem(values) {
+  const payload = {
+    name: values.name.trim(),
+    base_unit: values.baseUnit.trim(),
+    par_level: Number(values.parLevel),
+    reorder_point: Number(values.reorderPoint),
+    unit_cost: Number(values.unitCost),
+    active: values.active,
+    updated_at: new Date().toISOString(),
+  };
+  const client = requireClient();
+  const result = values.id
+    ? await client.from("processed_inventory_items").update(payload).eq("id", values.id).select("id").single()
+    : await client.from("processed_inventory_items").insert({...payload, quantity: 0}).select("id").single();
+  throwIfError(result.error);
+  return result.data;
+}
+
+export async function setProcessedCatalogItemActive(id, active) {
+  const result = await requireClient().from("processed_inventory_items")
+    .update({active, updated_at: new Date().toISOString()}).eq("id", id);
+  throwIfError(result.error);
 }
 
 export async function setInventoryExistences(entries) {

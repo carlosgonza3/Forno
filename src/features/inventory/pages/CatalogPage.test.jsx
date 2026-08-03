@@ -6,6 +6,7 @@ const loadCatalog = vi.fn();
 const saveCatalogItem = vi.fn();
 const setCatalogItemIcon = vi.fn();
 const setInventoryExistences = vi.fn();
+const setProcessedInventoryExistences = vi.fn();
 const downloadInventoryCsv = vi.fn();
 let authRole = "local";
 
@@ -15,11 +16,14 @@ vi.mock("../../auth/AuthProvider", () => ({
 
 vi.mock("../api/catalogRepository", () => ({
   setInventoryExistences: (...args) => setInventoryExistences(...args),
+  setProcessedInventoryExistences: (...args) => setProcessedInventoryExistences(...args),
   loadCatalog: (...args) => loadCatalog(...args),
   saveCatalogItem: (...args) => saveCatalogItem(...args),
+  saveProcessedCatalogItem: vi.fn(),
   setCatalogItemIcon: (...args) => setCatalogItemIcon(...args),
   saveSupplier: vi.fn(),
   setCatalogItemActive: vi.fn(),
+  setProcessedCatalogItemActive: vi.fn(),
   setSupplierActive: vi.fn(),
 }));
 
@@ -63,6 +67,8 @@ describe("CatalogPage inventory explorer", () => {
     authRole = "local";
     loadCatalog.mockClear();
     setInventoryExistences.mockClear();
+    setProcessedInventoryExistences.mockReset();
+    setProcessedInventoryExistences.mockResolvedValue([]);
     saveCatalogItem.mockReset();
     saveCatalogItem.mockResolvedValue({id: "tomato"});
     setCatalogItemIcon.mockReset();
@@ -80,6 +86,9 @@ describe("CatalogPage inventory explorer", () => {
         item({ id: "flour", name: "Harina", sku: "FOR-003", quantity: 20, par: 20, reorder: 5, department: pantry }),
         item({ id: "retired", name: "Producto archivado", sku: "FOR-004", quantity: 0, par: 0, reorder: 0, department: pantry, active: false }),
       ],
+      processedItems: [
+        item({id: "pesto", name: "Pesto", sku: "PROC-001", quantity: 500, par: 0, reorder: 0}),
+      ],
     });
   });
 
@@ -88,7 +97,7 @@ describe("CatalogPage inventory explorer", () => {
 
     expect(await screen.findByText("Tomate")).toBeInTheDocument();
     expect([...document.querySelectorAll(".catalog-tabs button")].map((button) => button.textContent.trim()))
-      .toEqual(["Ingredientes", "Proveedores"]);
+      .toEqual(["Ingredientes", "Ingredientes Procesados", "Proveedores"]);
     expect(screen.getByRole("menubar", { name: "Opciones de tabla" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
     expect(await screen.findByRole("menuitemradio", { name: "Sin agrupar" })).toHaveAttribute(
@@ -106,6 +115,38 @@ describe("CatalogPage inventory explorer", () => {
     fireEvent.click(await screen.findByRole("menuitemradio", { name: /Críticos/ }));
     await waitFor(() => expect(screen.queryByText("Harina")).not.toBeInTheDocument());
     expect(screen.getByText("Tomate")).toBeInTheDocument();
+  });
+
+  it("shows processed ingredients in their own inventory tab", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    fireEvent.click(screen.getByRole("button", {name: "Ingredientes Procesados"}));
+
+    expect(await screen.findByText("Pesto")).toBeInTheDocument();
+    expect(screen.queryByText("Tomate")).not.toBeInTheDocument();
+    expect(screen.getByText(/500/)).toBeInTheDocument();
+  });
+
+  it("updates processed-item existences through the separate processed inventory workflow", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    fireEvent.click(screen.getByRole("button", {name: "Ingredientes Procesados"}));
+    await screen.findByText("Pesto");
+    fireEvent.click(screen.getByRole("button", {name: "Actualizar existencias"}));
+
+    fireEvent.change(screen.getByLabelText("Nueva existencia de Pesto"), {target: {value: "475"}});
+    fireEvent.change(screen.getByLabelText("Nota de Pesto"), {target: {value: "Conteo de producción"}});
+    fireEvent.click(screen.getByRole("button", {name: /Continuar/}));
+    expect(screen.getByRole("heading", {name: "Revisar actualizaciones"})).toBeInTheDocument();
+    expect(screen.getByText("475 Libras (lb)")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: /Confirmar y guardar/}));
+    await waitFor(() => expect(setProcessedInventoryExistences).toHaveBeenCalledWith([
+      expect.objectContaining({id: "pesto", newQuantity: 475, note: "Conteo de producción"}),
+    ]));
+    expect(setInventoryExistences).not.toHaveBeenCalled();
   });
 
   it("can include or hide deactivated ingredients from the inventory toolbar", async () => {

@@ -54,10 +54,13 @@ import {
 } from "../../../components/ui/menubar";
 import {
     setInventoryExistences,
+    setProcessedInventoryExistences,
     loadCatalog,
     saveCatalogItem,
+    saveProcessedCatalogItem,
     saveSupplier,
     setCatalogItemActive,
+    setProcessedCatalogItemActive,
     setCatalogItemIcon,
     setSupplierActive,
 } from "../api/catalogRepository";
@@ -119,7 +122,7 @@ export default function CatalogPage() {
     const {role} = useAuth();
     const isAdmin = role === "admin";
     const [catalog, setCatalog] = useState({
-        items: [], departments: [], suppliers: [], iconFieldAvailable: true, emojiFieldAvailable: true,
+        items: [], processedItems: [], departments: [], suppliers: [], iconFieldAvailable: true, emojiFieldAvailable: true,
     });
     const [tab, setTab] = useState("items");
     const [query, setQuery] = useState("");
@@ -133,9 +136,11 @@ export default function CatalogPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [itemDraft, setItemDraft] = useState(null);
+    const [processedDraft, setProcessedDraft] = useState(null);
     const [supplierDraft, setSupplierDraft] = useState(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [existenceOpen, setExistenceOpen] = useState(false);
+    const [processedExistenceOpen, setProcessedExistenceOpen] = useState(false);
     const [tableExpanded, setTableExpanded] = useState(false);
     const [savingIconIds, setSavingIconIds] = useState(() => new Set());
 
@@ -169,9 +174,11 @@ export default function CatalogPage() {
         };
     }, [tableExpanded]);
 
+    const catalogItems = tab === "processed" ? (catalog.processedItems ?? []) : catalog.items;
     const scopedItems = useMemo(
-        () => catalog.items.filter((item) => matchesCatalogItem(item, query, departmentId, includeInactive, supplierId)),
-        [catalog.items, departmentId, includeInactive, query, supplierId],
+        () => catalogItems.filter((item) => matchesCatalogItem(item, query,
+            tab === "processed" ? "" : departmentId, includeInactive, tab === "processed" ? "" : supplierId)),
+        [catalogItems, departmentId, includeInactive, query, supplierId, tab],
     );
     const statusCounts = useMemo(() => scopedItems.reduce((counts, item) => {
         const key = stockStatus(item).key;
@@ -235,9 +242,26 @@ export default function CatalogPage() {
         });
     }
 
+    function editProcessedItem(item) {
+        setProcessedDraft({
+            id: item.id, name: item.name, sku: item.sku ?? "", departmentId: "", supplierId: "",
+            baseUnit: item.base_unit, parLevel: String(item.par_level), reorderPoint: String(item.reorder_point),
+            unitCost: String(item.unit_cost), iconKey: "", iconEmoji: "", active: item.active,
+        });
+    }
+
     async function toggleItem(item) {
         try {
             await setCatalogItemActive(item.id, !item.active);
+            await refresh();
+        } catch (nextError) {
+            setError(errorMessage(nextError));
+        }
+    }
+
+    async function toggleProcessedItem(item) {
+        try {
+            await setProcessedCatalogItemActive(item.id, !item.active);
             await refresh();
         } catch (nextError) {
             setError(errorMessage(nextError));
@@ -282,8 +306,8 @@ export default function CatalogPage() {
         <section className="catalog-heading">
             <div><h2>Ingredientes y proveedores</h2></div>
             <div className="catalog-heading-actions">
-                {tab === "items" && <button className="primary-btn existence-entry-button"
-                                            onClick={() => setExistenceOpen(true)} disabled={loading}>
+                {(tab === "items" || tab === "processed") && <button className="primary-btn existence-entry-button"
+                                            onClick={() => tab === "processed" ? setProcessedExistenceOpen(true) : setExistenceOpen(true)} disabled={loading}>
                     <RefreshCw size={17}/><span>Actualizar existencias</span>
                 </button>}
             </div>
@@ -306,6 +330,13 @@ export default function CatalogPage() {
                         setQuery("");
                     }}>Ingredientes
                     </button>
+                    <button className={tab === "processed" ? "active" : ""} onClick={() => {
+                        setTab("processed");
+                        setQuery("");
+                        resetItemFilters();
+                        setGroupBy("none");
+                    }}>Ingredientes Procesados
+                    </button>
                     <button className={tab === "suppliers" ? "active" : ""} onClick={() => {
                         setTab("suppliers");
                         setQuery("");
@@ -326,19 +357,20 @@ export default function CatalogPage() {
                     </button>
                 </div>
             </div>
-            {isAdmin && tab === "items" && <div className="catalog-item-create-row">
-                <button className="primary-btn catalog-create-button" onClick={() => setItemDraft({...emptyItem})}>
-                    <Plus size={17}/> Ingrediente
+            {isAdmin && (tab === "items" || tab === "processed") && <div className="catalog-item-create-row">
+                <button className="primary-btn catalog-create-button" onClick={() => tab === "processed"
+                    ? setProcessedDraft({...emptyItem}) : setItemDraft({...emptyItem})}>
+                    <Plus size={17}/> {tab === "processed" ? "Ingrediente procesado" : "Ingrediente"}
                 </button>
             </div>}
             <div className="catalog-data-toolbar">
                 <InputGroup className="search-box"><InputGroupInput value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    aria-label={`Buscar ${tab === "items" ? "ingrediente" : "proveedor"}`}
-                    placeholder={`Buscar ${tab === "items" ? "ingrediente" : "proveedor"}…`}/>
+                    aria-label={`Buscar ${tab === "suppliers" ? "proveedor" : "ingrediente"}`}
+                    placeholder={`Buscar ${tab === "suppliers" ? "proveedor" : "ingrediente"}…`}/>
                     <InputGroupAddon><Search size={18}/></InputGroupAddon>
                 </InputGroup>
-                {tab === "items" ? <InventoryMenubar
+                {tab === "items" || tab === "processed" ? <InventoryMenubar
                     departments={catalog.departments}
                     suppliers={catalog.suppliers.filter((supplier) => supplier.active)}
                     departmentId={departmentId} onDepartmentChange={setDepartmentId}
@@ -354,23 +386,23 @@ export default function CatalogPage() {
                     : <label className="modern-switch catalog-inactive-toggle"><input type="checkbox"
                         checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)}/>
                         <span className="switch-track"><i/></span><span>Inactivos</span></label>}
-                {tab === "items" && hasItemFilters && <Button variant="ghost" size="sm"
+                {(tab === "items" || tab === "processed") && hasItemFilters && <Button variant="ghost" size="sm"
                     className="reset-filters" onClick={resetItemFilters}><FilterX size={15}/>Limpiar</Button>}
             </div>
 
-            {tab === "items" && <div className="inventory-results-bar">
-                <span> <strong>{items.length}</strong> de {catalog.items.filter((item) => item.active || includeInactive).length} ingredientes</span>
+            {(tab === "items" || tab === "processed") && <div className="inventory-results-bar">
+                <span> <strong>{items.length}</strong> de {catalogItems.filter((item) => item.active || includeInactive).length} ingredientes</span>
                 <div>{groupBy !== "none" && itemGroups.length > 0 && <button
                     className="inventory-groups-toggle" onClick={toggleAllGroups}
                     aria-label={allGroupsExpanded ? "Contraer todos los grupos" : "Expandir todos los grupos"}>
                     {allGroupsExpanded ? <ChevronsDownUp size={15}/> : <ChevronsUpDown size={15}/>}
                     {allGroupsExpanded ? "Contraer todo" : "Expandir todo"}
                 </button>}
-                <button className="inventory-export-button" disabled={loading || items.length === 0}
+                {tab === "items" && <button className="inventory-export-button" disabled={loading || items.length === 0}
                         onClick={() => setExportOpen(true)}
                         title="Descargar los resultados visibles con la agrupación y el orden actuales">
                     <Download size={15}/><span>Exportar CSV</span><b>{items.length}</b>
-                </button></div>
+                </button>}</div>
             </div>}
 
             {error && <div className="catalog-message error">{error}
@@ -378,11 +410,12 @@ export default function CatalogPage() {
             </div>}
             {loading ? <div className="catalog-empty">
                 <div className="state-spinner"/>
-                <p>Cargando catálogo seguro…</p></div> : tab === "items" ? (
+                <p>Cargando catálogo seguro…</p></div> : (tab === "items" || tab === "processed") ? (
                 <div className="inventory-table-stage"><ItemsExplorer
                     groups={itemGroups} groupBy={groupBy} collapsedGroups={collapsedGroups} onToggleGroup={toggleGroup}
-                    isAdmin={isAdmin} onEdit={editItem} onToggle={toggleItem}
-                    iconFieldAvailable={catalog.iconFieldAvailable}
+                    isAdmin={isAdmin} onEdit={tab === "processed" ? editProcessedItem : editItem}
+                    onToggle={tab === "processed" ? toggleProcessedItem : toggleItem}
+                    iconFieldAvailable={tab !== "processed" && catalog.iconFieldAvailable}
                     emojiFieldAvailable={catalog.emojiFieldAvailable}
                     savingIconIds={savingIconIds} onIconChange={updateItemIcon}/></div>
             ) : (
@@ -400,7 +433,16 @@ export default function CatalogPage() {
                                   onClose={() => setItemDraft(null)} onSaved={async () => {
             setItemDraft(null);
             await refresh();
-        }}/>}
+        }}
+        />}
+        {processedDraft && <ProcessedItemDialog
+            draft={processedDraft}
+            onClose={() => setProcessedDraft(null)}
+            onSaved={async () => {
+                setProcessedDraft(null);
+                await refresh();
+            }}
+        />}
         {supplierDraft && (
             <SupplierDialog draft={supplierDraft} onClose={() => setSupplierDraft(null)} onSaved={async () => {
                 setSupplierDraft(null);
@@ -418,14 +460,31 @@ export default function CatalogPage() {
                                       await refresh();
                                   }}/>
         )}
+        {processedExistenceOpen && (
+            <ExistenceEntryDialog catalog={{...catalog, items: catalog.processedItems ?? [], departments: []}}
+                itemLabel="ingrediente procesado" groupOptions={[{value: "none", label: "Sin agrupar"}]}
+                saveExistences={setProcessedInventoryExistences}
+                onClose={() => setProcessedExistenceOpen(false)} onSaved={async () => {
+                    setProcessedExistenceOpen(false);
+                    await refresh();
+                }}/>
+        )}
     </>;
 }
 
-function ExistenceEntryDialog({catalog, onClose, onSaved}) {
+function ExistenceEntryDialog({
+    catalog,
+    onClose,
+    onSaved,
+    itemLabel = "ingrediente",
+    saveExistences = setInventoryExistences,
+    groupOptions = [{value: "department", label: "Por departamento"},
+        {value: "supplier", label: "Por proveedor"}, {value: "none", label: "Sin agrupar"}],
+}) {
     const [stage, setStage] = useState("entry");
     const [query, setQuery] = useState("");
     const [departmentId, setDepartmentId] = useState("");
-    const [groupBy, setGroupBy] = useState("department");
+    const [groupBy, setGroupBy] = useState(groupOptions[0]?.value ?? "none");
     const [quantities, setQuantities] = useState({});
     const [notes, setNotes] = useState({});
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
@@ -476,7 +535,7 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
         setSaving(true);
         setError("");
         try {
-            await setInventoryExistences(editedItems);
+            await saveExistences(editedItems);
             await onSaved();
         } catch (nextError) {
             setError(errorMessage(nextError));
@@ -511,18 +570,18 @@ function ExistenceEntryDialog({catalog, onClose, onSaved}) {
                         placeholder="Buscar ingrediente…"/>
                         <InputGroupAddon><Search size={18}/></InputGroupAddon>
                     </InputGroup>
-                    <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
+                    {catalog.departments.length > 0 && <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
                         options={[{value: "", label: "Todos"}, ...catalog.departments.map((department) => ({
                             value: department.id, label: department.name
-                        }))]}/>
+                        }))]}
+                    />}
                     <ViewSelect icon={Layers3} label="Agrupación" value={groupBy} onChange={(value) => {
                         setGroupBy(value);
                         setCollapsedGroups(new Set());
-                    }} options={[{value: "department", label: "Por departamento"},
-                        {value: "supplier", label: "Por proveedor"}, {value: "none", label: "Sin agrupar"}]}/>
+                    }} options={groupOptions}/>
                 </div>
                 <div className="existence-table-stage">
-                    {!visibleItems.length ? <div className="catalog-empty"><Boxes size={28}/><h3>No hay ingredientes</h3>
+                    {!visibleItems.length ? <div className="catalog-empty"><Boxes size={28}/><h3>No hay {itemLabel}s</h3>
                         <p>Ajusta la búsqueda o el departamento.</p></div> : groups.map((group) => {
                         const grouped = groupBy !== "none";
                         const collapsed = collapsedGroups.has(group.key);
@@ -1141,6 +1200,26 @@ function ItemDialog({
             </form>
         </SheetContent>
     </Sheet>;
+}
+
+function ProcessedItemDialog({draft, onClose, onSaved}) {
+    const [values, setValues] = useState(draft);
+    return <CatalogDialog title={draft.id ? "Editar ingrediente procesado" : "Nuevo ingrediente procesado"}
+        values={values} setValues={setValues} onClose={onClose}
+        onSave={() => saveProcessedCatalogItem(values)} onSaved={onSaved}>
+        <label className="catalog-field wide"><span>Nombre *</span><input required autoFocus value={values.name}
+            onChange={(event) => setValues({...values, name: event.target.value})}/></label>
+        <label className="catalog-field catalog-unit-field"><span>Unidad de inventario *</span>
+            <select required value={values.baseUnit} onChange={(event) => setValues({...values, baseUnit: event.target.value})}>
+                {UNIT_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+            </select><small>La existencia y los niveles usan esta unidad.</small></label>
+        <NumberField label="Nivel ideal" value={values.parLevel}
+            onChange={(value) => setValues({...values, parLevel: value})}/>
+        <NumberField label="Punto de reorden" value={values.reorderPoint}
+            onChange={(value) => setValues({...values, reorderPoint: value})}/>
+        <NumberField label="Costo por unidad de inventario ($)" value={values.unitCost}
+            onChange={(value) => setValues({...values, unitCost: value})} step="0.01"/>
+    </CatalogDialog>;
 }
 
 function SupplierDialog({draft, onClose, onSaved}) {
