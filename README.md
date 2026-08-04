@@ -22,7 +22,7 @@ npm run check
 
 ## Deploy to GitHub Pages
 
-The repository includes a production workflow that tests and deploys the authenticated operations release whenever `main` is pushed. Production starts on Dashboard and exposes Dashboard, Inventory, Purchases, and appearance/account settings while keeping unfinished prototype modules hidden.
+The repository includes a production workflow that tests and deploys the authenticated operations release whenever `main` is pushed. Production starts on Dashboard and exposes Dashboard, Inventory, Purchases, operational notifications, and appearance/account settings while keeping unfinished prototype modules hidden.
 
 Frontend module boundaries, dependency rules, and stylesheet ownership are documented in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
@@ -41,11 +41,12 @@ Use short-lived feature branches for ongoing development and merge only client-r
 
 - Supabase authentication, session restoration, password recovery, and logout
 - Admin MFA enforcement and role-aware catalog controls
-- Live dashboard reorder metrics, attention list, and grouped inventory activity
-- Real ingredient and supplier catalog backed by Supabase
+- Live dashboard reorder metrics, attention list, list/calendar activity, and resizable workspace
+- Real ingredient, prepared-item, and supplier catalogs backed by separate Supabase tables
 - Inventory existence entry with review, audit history, and pluralized units
 - Shared purchase recommendations, filters, grouping, saved pending lists, CSV/PDF export, and inventory receipt
-- Search, filters, grouping, sorting, CSV export, and light/dark themes
+- Persistent grouped notifications with per-user unread state
+- Saved user display names, search, sorting, CSV export, and refined light/dark themes
 
 ## Prototype modules retained for development
 

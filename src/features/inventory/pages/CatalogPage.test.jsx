@@ -96,8 +96,11 @@ describe("CatalogPage inventory explorer", () => {
     render(<CatalogPage />);
 
     expect(await screen.findByText("Tomate")).toBeInTheDocument();
-    expect([...document.querySelectorAll(".catalog-tabs button")].map((button) => button.textContent.trim()))
-      .toEqual(["Ingredientes", "Ingredientes Procesados", "Proveedores"]);
+    expect(screen.getByRole("tablist", {name: "Secciones de inventario"})).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((button) => button.textContent.trim()))
+      .toEqual(["Ingredientes", "Preparados", "Proveedores"]);
+    expect(screen.getByRole("tab", {name: "Ingredientes"})).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", {name: "Resumen de ingredientes"})).toHaveTextContent("Por reponer");
     expect(screen.getByRole("menubar", { name: "Opciones de tabla" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
     expect(await screen.findByRole("menuitemradio", { name: "Sin agrupar" })).toHaveAttribute(
@@ -117,11 +120,42 @@ describe("CatalogPage inventory explorer", () => {
     expect(screen.getByText("Tomate")).toBeInTheDocument();
   });
 
+  it("starts with only critical ingredients when requested by dashboard navigation", async () => {
+    render(<CatalogPage initialStockFilter="critical"/>);
+
+    expect(await screen.findByText("Tomate")).toBeInTheDocument();
+    expect(screen.queryByText("Limón")).not.toBeInTheDocument();
+    expect(screen.queryByText("Harina")).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", {name: "Estado"})).toHaveTextContent("Críticos");
+  });
+
+  it("starts with only ingredients without existence when requested by dashboard navigation", async () => {
+    loadCatalog.mockResolvedValue({
+      departments: [produce],
+      suppliers: [market],
+      iconFieldAvailable: true,
+      emojiFieldAvailable: true,
+      items: [
+        item({id: "empty", name: "Ingrediente agotado", sku: "FOR-010", quantity: 0,
+          par: 5, reorder: 1, department: produce}),
+        item({id: "stocked", name: "Ingrediente disponible", sku: "FOR-011", quantity: 4,
+          par: 5, reorder: 1, department: produce}),
+      ],
+      processedItems: [],
+    });
+
+    render(<CatalogPage initialStockFilter="out"/>);
+
+    expect(await screen.findByText("Ingrediente agotado")).toBeInTheDocument();
+    expect(screen.queryByText("Ingrediente disponible")).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", {name: "Estado"})).toHaveTextContent("Sin existencia");
+  });
+
   it("shows processed ingredients in their own inventory tab", async () => {
     render(<CatalogPage />);
     await screen.findByText("Tomate");
 
-    fireEvent.click(screen.getByRole("button", {name: "Ingredientes Procesados"}));
+    fireEvent.click(screen.getByRole("tab", {name: "Preparados"}));
 
     expect(await screen.findByText("Pesto")).toBeInTheDocument();
     expect(screen.queryByText("Tomate")).not.toBeInTheDocument();
@@ -129,13 +163,14 @@ describe("CatalogPage inventory explorer", () => {
     expect(screen.queryByRole("menubar", {name: "Opciones de tabla"})).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", {name: "Buscar ingrediente"})).toBeInTheDocument();
     expect(document.querySelector(".inventory-results-bar")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", {name: "Resumen de preparados"})).toHaveTextContent("Disponibilidad");
   });
 
   it("updates processed-item existences through the separate processed inventory workflow", async () => {
     render(<CatalogPage />);
     await screen.findByText("Tomate");
 
-    fireEvent.click(screen.getByRole("button", {name: "Ingredientes Procesados"}));
+    fireEvent.click(screen.getByRole("tab", {name: "Preparados"}));
     await screen.findByText("Pesto");
     fireEvent.click(screen.getByRole("button", {name: "Actualizar existencias"}));
 
@@ -179,10 +214,11 @@ describe("CatalogPage inventory explorer", () => {
       .toHaveClass("catalog-data-toolbar");
     expect(createButton.closest(".catalog-tools")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {name: "Proveedores"}));
+    fireEvent.click(screen.getByRole("tab", {name: "Proveedores"}));
     const supplierButton = screen.getByRole("button", {name: /^Proveedor$/});
     expect(supplierButton.closest(".catalog-item-create-row")?.nextElementSibling)
       .toHaveClass("catalog-data-toolbar");
+    expect(screen.getByRole("region", {name: "Resumen de proveedores"})).toHaveTextContent("Con correo");
   });
 
   it("uses one clear inventory unit without package fields in the ingredient editor", async () => {
@@ -322,12 +358,12 @@ describe("CatalogPage inventory explorer", () => {
 
     fireEvent.pointerDown(tomato);
     expect(screen.getByRole("menuitem", { name: "Agrupación" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ingredientes y proveedores" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Secciones de inventario" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Agrupación" }));
     expect(await screen.findByRole("menuitemradio", { name: "Sin agrupar" })).toBeInTheDocument();
     expect(screen.getByRole("menubar", { name: "Opciones de tabla" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ingredientes y proveedores" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Ingredientes" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("lets any user enter the final existence with a note and review only edited ingredients", async () => {

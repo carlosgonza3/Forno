@@ -204,8 +204,14 @@
         display: none
     }
 
-    .banner-status {
-        display: none
+    .banner-inventory-update {
+        min-width: 0;
+        padding: 5px 0 5px 13px
+    }
+
+    .banner-inventory-update strong {
+        font-size: 11px;
+        white-space: normal
     }
 
     .stats-grid {
@@ -301,4 +307,3 @@
         height: 110px
     }
 }
-

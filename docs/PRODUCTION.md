@@ -1,6 +1,6 @@
 # Forno inventory production runbook
 
-The current client release contains the authenticated Dashboard, Inventory, Purchases, and appearance/account settings. Preparation, recipes, receipts, uploads, notifications, and team administration remain available for local development but are excluded from production navigation.
+The current client release contains the authenticated Dashboard, Inventory—including prepared items and suppliers—Purchases, operational notifications, and appearance/account settings. Preparation, recipes, receipts, uploads, and team administration remain available for local development but are excluded from production navigation.
 
 ## Environment model
 

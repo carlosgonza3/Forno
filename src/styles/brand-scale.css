@@ -145,6 +145,32 @@
     color: #e6bfb0
 }
 
+.banner-inventory-update {
+    z-index: 1;
+    min-width: 285px;
+    padding: 7px 24px;
+    border-left: 1px solid rgba(255, 255, 255, .16);
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    align-items: center;
+    gap: 2px 7px
+}
+
+.banner-inventory-update > svg {
+    grid-row: 1 / span 2;
+    color: #efbd82
+}
+
+.banner-inventory-update span {
+    color: #d9bdb4;
+    font-size: 8px
+}
+
+.banner-inventory-update strong {
+    font: 700 15px Manrope;
+    white-space: nowrap
+}
+
 .service-banner h2 {
     font: 800 21px Manrope;
     margin: 5px 0 2px;
@@ -155,35 +181,6 @@
     font-size: 10px;
     margin: 0;
     color: #dfc8bf
-}
-
-.banner-status {
-    z-index: 1;
-    min-width: 145px;
-    border-left: 1px solid rgba(255, 255, 255, .16);
-    padding: 8px 0 8px 22px;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 2px 7px
-}
-
-.banner-status i {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #efbd82;
-    box-shadow: 0 0 0 4px rgba(239, 189, 130, .12)
-}
-
-.banner-status span {
-    font-size: 8px;
-    color: #d9bdb4
-}
-
-.banner-status strong {
-    grid-column: 2;
-    font: 700 16px Manrope
 }
 
 .recipe-visual {
@@ -304,12 +301,12 @@
     font-size: 12px
 }
 
-.banner-status span {
+.banner-inventory-update span {
     font-size: 10px
 }
 
-.banner-status strong {
-    font-size: 19px
+.banner-inventory-update strong {
+    font-size: 17px
 }
 
 .stats-grid,
@@ -467,4 +464,3 @@
 .scan-summary {
     font-size: 12px
 }
-

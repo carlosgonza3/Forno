@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase";
+import {announceActivityNotification} from "../inventoryEvents";
 
 const ITEM_SELECT = `
   id,
@@ -96,6 +97,7 @@ export async function setProcessedInventoryExistences(entries) {
   }));
   const result = await requireClient().rpc("set_processed_inventory_existences", {updates});
   throwIfError(result.error);
+  announceActivityNotification();
   return result.data ?? [];
 }
 
@@ -114,6 +116,7 @@ export async function saveProcessedCatalogItem(values) {
     ? await client.from("processed_inventory_items").update(payload).eq("id", values.id).select("id").single()
     : await client.from("processed_inventory_items").insert({...payload, quantity: 0}).select("id").single();
   throwIfError(result.error);
+  announceActivityNotification();
   return result.data;
 }
 
@@ -121,6 +124,7 @@ export async function setProcessedCatalogItemActive(id, active) {
   const result = await requireClient().from("processed_inventory_items")
     .update({active, updated_at: new Date().toISOString()}).eq("id", id);
   throwIfError(result.error);
+  announceActivityNotification();
 }
 
 export async function setInventoryExistences(entries) {
@@ -132,7 +136,56 @@ export async function setInventoryExistences(entries) {
   }));
   const result = await client.rpc("set_inventory_existences", { updates });
   throwIfError(result.error);
+  announceActivityNotification();
   return result.data ?? [];
+}
+
+export async function loadRecentActivityNotifications({limit = 20} = {}) {
+  const client = requireClient();
+  const queryLimit = Math.max(1, Number(limit) || 20);
+  const result = await client.from("activity_notifications")
+    .select("id, event_type, entity_type, entity_id, actor_id, actor_name, item_count, metadata, created_at")
+    .order("created_at", {ascending: false})
+    .order("id", {ascending: false})
+    .limit(queryLimit);
+  throwIfError(result.error);
+  return (result.data ?? []).map((notification) => ({
+    ...notification,
+    id: String(notification.id),
+  }));
+}
+
+export async function loadLastInventoryUpdate() {
+  const result = await requireClient().from("activity_notifications")
+    .select("id, event_type, created_at")
+    .in("event_type", ["ingredients_updated", "processed_updated"])
+    .order("created_at", {ascending: false})
+    .order("id", {ascending: false})
+    .limit(1);
+  throwIfError(result.error);
+  return result.data?.[0] ? {...result.data[0], id: String(result.data[0].id)} : null;
+}
+
+export async function loadUnreadActivityNotificationCount() {
+  const client = requireClient();
+  const readResult = await client.from("activity_notification_reads")
+    .select("last_seen_notification_id")
+    .maybeSingle();
+  throwIfError(readResult.error);
+  const lastSeenId = readResult.data?.last_seen_notification_id ?? 0;
+  const unreadResult = await client.from("activity_notifications")
+    .select("id", {count: "exact", head: true})
+    .gt("id", lastSeenId);
+  throwIfError(unreadResult.error);
+  return unreadResult.count ?? 0;
+}
+
+export async function markActivityNotificationsViewed(notificationId) {
+  const result = await requireClient().rpc("mark_activity_notifications_viewed", {
+    latest_notification_id: notificationId,
+  });
+  throwIfError(result.error);
+  return result.data;
 }
 
 export async function loadInventoryAdditionTransactions({
@@ -146,7 +199,7 @@ export async function loadInventoryAdditionTransactions({
   let transactionsQuery = client
     .from("inventory_addition_transactions")
     .select("id, created_by, item_count, created_at", { count: "exact" })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
   if (dateFrom) transactionsQuery = transactionsQuery.gte("created_at", dateFrom);
   if (dateTo) transactionsQuery = transactionsQuery.lt("created_at", dateTo);
   const transactionsResult = await transactionsQuery.range(from, from + pageSize - 1);
@@ -223,6 +276,7 @@ export async function saveCatalogItem(values) {
     : await client.from("inventory_items").insert({ ...payload, quantity: 0 }).select("id").single();
 
   throwIfError(result.error);
+  announceActivityNotification();
   return result.data;
 }
 
@@ -249,6 +303,7 @@ export async function setCatalogItemIcon(id, { iconKey, iconEmoji }) {
     .update(payload)
     .eq("id", id);
   throwIfError(result.error);
+  announceActivityNotification();
 }
 
 export async function setCatalogItemActive(id, active) {
@@ -257,6 +312,7 @@ export async function setCatalogItemActive(id, active) {
     .update({ active, updated_at: new Date().toISOString() })
     .eq("id", id);
   throwIfError(result.error);
+  announceActivityNotification();
 }
 
 export async function saveSupplier(values) {
@@ -271,10 +327,12 @@ export async function saveSupplier(values) {
     ? await client.from("suppliers").update(payload).eq("id", values.id).select("id").single()
     : await client.from("suppliers").insert(payload).select("id").single();
   throwIfError(result.error);
+  announceActivityNotification();
   return result.data;
 }
 
 export async function setSupplierActive(id, active) {
   const result = await requireClient().from("suppliers").update({ active }).eq("id", id);
   throwIfError(result.error);
+  announceActivityNotification();
 }

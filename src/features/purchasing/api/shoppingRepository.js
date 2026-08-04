@@ -1,5 +1,6 @@
 import {supabase} from "../../../lib/supabase";
 import {loadCatalog} from "../../inventory/api/catalogRepository";
+import {announceActivityNotification} from "../../inventory/inventoryEvents";
 
 function requireClient() {
   if (!supabase) throw new Error("Supabase no está configurado.");
@@ -64,6 +65,7 @@ export async function createPurchaseList(items) {
   }));
   const result = await requireClient().rpc("create_purchase_list", {order_items: orderItems});
   if (result.error) throw result.error;
+  announceActivityNotification();
   return result.data;
 }
 
@@ -77,5 +79,6 @@ export async function receivePurchaseList(listId, items) {
     received_items: receivedItems,
   });
   if (result.error) throw result.error;
+  announceActivityNotification();
   return result.data;
 }

@@ -12,3 +12,12 @@ class IntersectionObserverMock {
 }
 
 globalThis.IntersectionObserver ??= IntersectionObserverMock;
+
+class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+
+globalThis.ResizeObserver ??= ResizeObserverMock;
+globalThis.window.ResizeObserver ??= ResizeObserverMock;

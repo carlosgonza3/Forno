@@ -15,11 +15,15 @@ import {
     Download,
     Eye,
     FilterX,
+    Gauge,
     Layers3,
+    Mail,
     Maximize2,
     Minus,
     Minimize2,
+    PackageCheck,
     Pencil,
+    Phone,
     Plus,
     RefreshCw,
     Search,
@@ -42,6 +46,7 @@ import {Button} from "../../../components/ui/button";
 import {DataTable} from "../../../components/ui/data-table";
 import {InputGroup, InputGroupAddon, InputGroupInput} from "../../../components/ui/input-group";
 import {Popover, PopoverContent, PopoverTrigger} from "../../../components/ui/popover";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "../../../components/ui/tabs";
 import {
     Menubar,
     MenubarContent,
@@ -103,6 +108,42 @@ const emptyItem = {
 };
 const emptySupplier = {id: null, name: "", email: "", phone: "", active: true};
 
+function stockOverview(items = []) {
+    const activeItems = items.filter((item) => item.active);
+    const counts = activeItems.reduce((summary, item) => {
+        summary[stockStatus(item).key] += 1;
+        if (Number(item.quantity) > 0) summary.withExistence += 1;
+        return summary;
+    }, {critical: 0, low: 0, healthy: 0, neutral: 0, withExistence: 0});
+    return {
+        active: activeItems.length,
+        inactive: items.length - activeItems.length,
+        critical: counts.critical,
+        low: counts.low,
+        healthy: counts.healthy,
+        withExistence: counts.withExistence,
+        withoutExistence: activeItems.length - counts.withExistence,
+        healthyCoverage: activeItems.length ? Math.round(counts.healthy / activeItems.length * 100) : 0,
+        availability: activeItems.length ? Math.round(counts.withExistence / activeItems.length * 100) : 0,
+    };
+}
+
+function CatalogQuickMetrics({label, metrics}) {
+    return <section className="catalog-quick-metrics" aria-label={`Resumen de ${label}`}>
+        {metrics.map(({label: metricLabel, value, detail, icon: Icon, tone, progress}) =>
+            <article className={`catalog-quick-metric is-${tone}`} key={metricLabel}>
+                <span className="catalog-quick-metric-head">
+                    <i><Icon size={15}/></i><span>{metricLabel}</span>
+                </span>
+                <strong>{value}</strong>
+                <small>{detail}</small>
+                {progress != null && <span className="catalog-quick-metric-progress" aria-hidden="true">
+                    <i style={{width: `${Math.max(0, Math.min(100, progress))}%`}}/>
+                </span>}
+            </article>)}
+    </section>;
+}
+
 function errorMessage(error) {
     if (error?.code === "ICON_FIELD_UNAVAILABLE") {
         return "La selección de íconos estará disponible al aplicar la actualización segura de la base de datos.";
@@ -118,7 +159,7 @@ function errorMessage(error) {
     return "No pudimos completar la operación. Intenta nuevamente.";
 }
 
-export default function CatalogPage() {
+export default function CatalogPage({initialStockFilter = "all"}) {
     const {role} = useAuth();
     const isAdmin = role === "admin";
     const [catalog, setCatalog] = useState({
@@ -128,7 +169,7 @@ export default function CatalogPage() {
     const [query, setQuery] = useState("");
     const [departmentId, setDepartmentId] = useState("");
     const [supplierId, setSupplierId] = useState("");
-    const [stockFilter, setStockFilter] = useState("all");
+    const [stockFilter, setStockFilter] = useState(initialStockFilter);
     const [groupBy, setGroupBy] = useState("none");
     const [sortBy, setSortBy] = useState("name");
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
@@ -161,6 +202,11 @@ export default function CatalogPage() {
     }, [refresh]);
 
     useEffect(() => {
+        setTab("items");
+        setStockFilter(initialStockFilter || "all");
+    }, [initialStockFilter]);
+
+    useEffect(() => {
         if (!tableExpanded) return undefined;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
@@ -182,10 +228,12 @@ export default function CatalogPage() {
     );
     const statusCounts = useMemo(() => scopedItems.reduce((counts, item) => {
         const key = stockStatus(item).key;
-        return {...counts, [key]: (counts[key] ?? 0) + 1};
-    }, {critical: 0, low: 0, healthy: 0, neutral: 0}), [scopedItems]);
+        return {...counts, [key]: (counts[key] ?? 0) + 1,
+            out: counts.out + (Number(item.quantity) <= 0 ? 1 : 0)};
+    }, {critical: 0, low: 0, healthy: 0, neutral: 0, out: 0}), [scopedItems]);
     const items = useMemo(() => sortCatalogItems(
-        stockFilter === "all" ? scopedItems : scopedItems.filter((item) => stockStatus(item).key === stockFilter),
+        stockFilter === "all" ? scopedItems : scopedItems.filter((item) => stockFilter === "out"
+            ? Number(item.quantity) <= 0 : stockStatus(item).key === stockFilter),
         sortBy,
     ), [scopedItems, sortBy, stockFilter]);
     const itemGroups = useMemo(() => groupCatalogItems(items, groupBy), [groupBy, items]);
@@ -199,7 +247,49 @@ export default function CatalogPage() {
                 .some((value) => String(value ?? "").toLocaleLowerCase("es").includes(normalized)))
         ));
     }, [catalog.suppliers, includeInactive, query]);
-    const critical = catalog.items.filter((item) => item.active && stockStatus(item).key === "critical").length;
+    const ingredientOverview = stockOverview(catalog.items);
+    const processedOverview = stockOverview(catalog.processedItems ?? []);
+    const activeSuppliers = catalog.suppliers.filter((supplier) => supplier.active);
+    const quickInfo = tab === "processed" ? {
+        label: "preparados",
+        metrics: [
+            {label: "Preparados activos", value: processedOverview.active,
+                detail: `${processedOverview.inactive} inactivos`, icon: Layers3, tone: "wine"},
+            {label: "Con existencia", value: processedOverview.withExistence,
+                detail: "Listos para utilizar", icon: PackageCheck, tone: "green"},
+            {label: "Agotados", value: processedOverview.withoutExistence,
+                detail: "Requieren preparación", icon: CircleOff, tone: "clay"},
+            {label: "Disponibilidad", value: `${processedOverview.availability}%`,
+                detail: `${processedOverview.withExistence} de ${processedOverview.active} disponibles`,
+                icon: Gauge, tone: "blue", progress: processedOverview.availability},
+        ],
+    } : tab === "suppliers" ? {
+        label: "proveedores",
+        metrics: [
+            {label: "Registrados", value: catalog.suppliers.length,
+                detail: `${catalog.suppliers.length - activeSuppliers.length} inactivos`, icon: Building2, tone: "wine"},
+            {label: "Activos", value: activeSuppliers.length,
+                detail: "Disponibles para compras", icon: CheckCircle2, tone: "green"},
+            {label: "Con correo", value: activeSuppliers.filter((supplier) => supplier.email?.trim()).length,
+                detail: "Contacto digital disponible", icon: Mail, tone: "blue"},
+            {label: "Con teléfono", value: activeSuppliers.filter((supplier) => supplier.phone?.trim()).length,
+                detail: "Contacto directo disponible", icon: Phone, tone: "gold"},
+        ],
+    } : {
+        label: "ingredientes",
+        metrics: [
+            {label: "Ingredientes activos", value: ingredientOverview.active,
+                detail: `${ingredientOverview.inactive} inactivos`, icon: Boxes, tone: "wine"},
+            {label: "Por reponer", value: ingredientOverview.critical + ingredientOverview.low,
+                detail: `${ingredientOverview.critical} críticos · ${ingredientOverview.low} bajos`,
+                icon: AlertTriangle, tone: "gold"},
+            {label: "Sin existencia", value: ingredientOverview.withoutExistence,
+                detail: "Necesitan reposición", icon: CircleOff, tone: "clay"},
+            {label: "Cobertura saludable", value: `${ingredientOverview.healthyCoverage}%`,
+                detail: `${ingredientOverview.healthy} en nivel óptimo`, icon: CheckCircle2,
+                tone: "green", progress: ingredientOverview.healthyCoverage},
+        ],
+    };
     const hasItemFilters = Boolean(query || departmentId || supplierId || stockFilter !== "all" || includeInactive);
 
     function resetItemFilters() {
@@ -208,6 +298,18 @@ export default function CatalogPage() {
         setSupplierId("");
         setStockFilter("all");
         setIncludeInactive(false);
+    }
+
+    function changeCatalogTab(nextTab) {
+        if (!nextTab || nextTab === tab) return;
+        setTab(nextTab);
+        setQuery("");
+        setTableExpanded(false);
+        if (nextTab === "processed") {
+            resetItemFilters();
+            setGroupBy("none");
+            setSortBy("name");
+        }
     }
 
     function toggleGroup(key) {
@@ -302,9 +404,13 @@ export default function CatalogPage() {
         }
     }
 
-    return <>
-        <section className="catalog-heading">
-            <div><h2>Ingredientes y proveedores</h2></div>
+    return <Tabs value={tab} onValueChange={changeCatalogTab} className="catalog-tabs-root">
+        <section className="catalog-tabs-toolbar">
+            <TabsList variant="line" className="catalog-tabs" aria-label="Secciones de inventario">
+                <TabsTrigger value="items">Ingredientes</TabsTrigger>
+                <TabsTrigger value="processed">Preparados</TabsTrigger>
+                <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
+            </TabsList>
             <div className="catalog-heading-actions">
                 {(tab === "items" || tab === "processed") && <button className="primary-btn existence-entry-button"
                                             onClick={() => tab === "processed" ? setProcessedExistenceOpen(true) : setExistenceOpen(true)} disabled={loading}>
@@ -313,37 +419,19 @@ export default function CatalogPage() {
             </div>
         </section>
 
-        <div className="catalog-stats">
-            <div><Boxes size={20}/><span><strong>{catalog.items.filter((item) => item.active).length}</strong> productos activos</span>
-            </div>
-            <div><CircleOff size={20}/><span><strong>{critical}</strong> bajo punto de reorden</span></div>
-            <div><Building2
-                size={20}/><span><strong>{catalog.suppliers.filter((supplier) => supplier.active).length}</strong> proveedores</span>
-            </div>
-        </div>
+        <CatalogQuickMetrics label={quickInfo.label} metrics={quickInfo.metrics}/>
 
+        <TabsContent value={tab} className="catalog-tab-content">
         <div className={`panel page-panel catalog-panel ${tableExpanded ? "is-table-expanded" : ""}`}>
-            <div className="catalog-panel-head">
-                <div className="catalog-tabs">
-                    <button className={tab === "items" ? "active" : ""} onClick={() => {
-                        setTab("items");
-                        setQuery("");
-                    }}>Ingredientes
-                    </button>
-                    <button className={tab === "processed" ? "active" : ""} onClick={() => {
-                        setTab("processed");
-                        setQuery("");
-                        resetItemFilters();
-                        setGroupBy("none");
-                        setSortBy("name");
-                    }}>Ingredientes Procesados
-                    </button>
-                    <button className={tab === "suppliers" ? "active" : ""} onClick={() => {
-                        setTab("suppliers");
-                        setQuery("");
-                    }}>Proveedores
-                    </button>
-                </div>
+            <div className="catalog-item-create-row">
+                {isAdmin && <button className="primary-btn catalog-create-button" onClick={() => {
+                    if (tab === "processed") setProcessedDraft({...emptyItem});
+                    else if (tab === "suppliers") setSupplierDraft({...emptySupplier});
+                    else setItemDraft({...emptyItem});
+                }}>
+                    <Plus size={17}/> {tab === "processed" ? "Ingrediente procesado"
+                        : tab === "suppliers" ? "Proveedor" : "Ingrediente"}
+                </button>}
                 <div className="catalog-panel-actions">
                     <button type="button" className="catalog-expand-button"
                         aria-pressed={tableExpanded}
@@ -355,16 +443,6 @@ export default function CatalogPage() {
                     </button>
                 </div>
             </div>
-            {isAdmin && <div className="catalog-item-create-row">
-                <button className="primary-btn catalog-create-button" onClick={() => {
-                    if (tab === "processed") setProcessedDraft({...emptyItem});
-                    else if (tab === "suppliers") setSupplierDraft({...emptySupplier});
-                    else setItemDraft({...emptyItem});
-                }}>
-                    <Plus size={17}/> {tab === "processed" ? "Ingrediente procesado"
-                        : tab === "suppliers" ? "Proveedor" : "Ingrediente"}
-                </button>
-            </div>}
             <div className="catalog-data-toolbar">
                 <InputGroup className="search-box"><InputGroupInput value={query}
                     onChange={(event) => setQuery(event.target.value)}
@@ -427,6 +505,7 @@ export default function CatalogPage() {
                 })} onToggle={toggleSupplier}/>
             )}
         </div>
+        </TabsContent>
 
         {itemDraft && <ItemDialog draft={itemDraft} departments={catalog.departments} suppliers={catalog.suppliers}
                                   iconFieldAvailable={catalog.iconFieldAvailable}
@@ -470,7 +549,7 @@ export default function CatalogPage() {
                     await refresh();
                 }}/>
         )}
-    </>;
+    </Tabs>;
 }
 
 function ExistenceEntryDialog({
@@ -787,6 +866,7 @@ function InventoryMenubar({
     const statusOptions = [
         {value: "all", label: "Todos", count: totalCount},
         {value: "critical", label: "Críticos", count: statusCounts.critical},
+        {value: "out", label: "Sin existencia", count: statusCounts.out},
         {value: "low", label: "Bajos", count: statusCounts.low},
         {value: "healthy", label: "Saludables", count: statusCounts.healthy},
         {value: "neutral", label: "Sin referencia", count: statusCounts.neutral},

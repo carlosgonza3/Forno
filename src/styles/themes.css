@@ -1,7 +1,9 @@
 /* Appearance settings and color themes */
 .settings-layout {
     width: min(920px, 100%);
-    margin: 0 auto
+    margin: 0 auto;
+    display: grid;
+    gap: 18px
 }
 
 .settings-card {
@@ -102,6 +104,82 @@
     background: #9f3026
 }
 
+.profile-settings-card {
+    display: grid;
+    grid-template-columns: minmax(240px, .75fr) minmax(320px, 1.25fr);
+    align-items: end;
+    gap: 38px
+}
+
+.profile-settings-card .settings-heading {
+    margin-bottom: 0
+}
+
+.profile-name-form > label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase
+}
+
+.profile-name-control {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 48px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--paper);
+    transition: border-color .16s ease, box-shadow .16s ease
+}
+
+.profile-name-control:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring)
+}
+
+.profile-name-control > span {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--accent-text);
+    background: var(--accent-soft)
+}
+
+.profile-name-control input {
+    min-width: 0;
+    height: 46px;
+    padding: 0 13px;
+    border: 0;
+    outline: 0;
+    color: var(--ink);
+    background: transparent;
+    font: 700 13px Manrope
+}
+
+.profile-name-control .primary-btn {
+    min-height: 36px;
+    margin-right: 6px;
+    padding-inline: 13px;
+    white-space: nowrap
+}
+
+.profile-name-message {
+    min-height: 20px;
+    margin: 7px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px
+}
+
+.profile-name-message.error { color: #b84636 }
+.profile-name-message.success { color: #4f7e5a }
+
 html[data-theme="dark"] {
     color: #f2e9e2;
     background: #15110f;
@@ -110,6 +188,8 @@ html[data-theme="dark"] {
     --muted: #b7aaa1;
     --line: #443833;
     --cream: #15110f;
+    --canvas: #15110f;
+    --page: #181310;
     --paper: #211b18;
     --clay-soft: #40231f;
     --gold-soft: #3b3020;
@@ -142,7 +222,7 @@ html[data-theme="dark"] .page-title h1,
 html[data-theme="dark"] .panel-head h2,
 html[data-theme="dark"] .service-copy h2,
 html[data-theme="dark"] .catalog-heading h2,
-html[data-theme="dark"] .catalog-stats strong,
+html[data-theme="dark"] .catalog-quick-metric > strong,
 html[data-theme="dark"] .product-cell strong,
 html[data-theme="dark"] .inventory-group-identity strong,
 html[data-theme="dark"] .smart-view-select strong,
@@ -308,7 +388,7 @@ html[data-theme="dark"] .primary-btn:hover {
 
 html[data-theme="dark"] .text-btn,
 html[data-theme="dark"] .eyebrow,
-html[data-theme="dark"] .catalog-tabs button.active,
+html[data-theme="dark"] .catalog-tabs .ui-tabs-trigger[data-active],
 html[data-theme="dark"] .inventory-results-bar button,
 html[data-theme="dark"] .stock-filter-row .reset-filters,
 html[data-theme="dark"] .prep-card-copy > span {
@@ -377,6 +457,57 @@ html[data-theme="dark"] .service-banner {
     background: radial-gradient(circle at 82% 10%, rgba(224, 160, 136, .11), transparent 28%),
     linear-gradient(110deg, #4b2522, #653029 60%, #3f211e);
     box-shadow: 0 12px 30px rgba(0, 0, 0, .16)
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-positive {
+    color: #8fc09a;
+    background: #25382a
+}
+
+html[data-theme="dark"] .notification-popover {
+    border-color: #4a3b35;
+    background: #191411;
+    box-shadow: 0 24px 58px rgba(0, 0, 0, .42)
+}
+
+html[data-theme="dark"] .notification-popover-head {
+    border-color: #3d312c;
+    background: #16110f
+}
+
+html[data-theme="dark"] .notification-movement {
+    border-color: #362b27
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-negative {
+    color: #dc8d7b;
+    background: #402925
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-inventory {
+    color: #dc8d7b;
+    background: #402925
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-prepared {
+    color: #e1b970;
+    background: #3e3424
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-supplier {
+    color: #83bec8;
+    background: #25383b
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-user {
+    color: #bba2d4;
+    background: #342b3e
+}
+
+html[data-theme="dark"] .notification-movement-icon.is-purchase,
+html[data-theme="dark"] .notification-movement-icon.is-complete {
+    color: #8fc09a;
+    background: #25382a
 }
 
 html[data-theme="dark"] .bar-chart {
@@ -617,12 +748,8 @@ html[data-theme="dark"] .global-view-button small {
     color: #bc8c80
 }
 
-html[data-theme="dark"] .catalog-tabs button.active {
-    border-color: #bf6a58
-}
-
-html[data-theme="dark"] .catalog-stats > div {
-    color: #c87562
+html[data-theme="dark"] .catalog-tabs .ui-tabs-trigger[data-active] {
+    color: #dfa08f
 }
 
 html[data-theme="dark"] .switch-track {
@@ -656,5 +783,19 @@ html[data-theme="dark"] :is(input, select, textarea, button):focus-visible {
     .theme-options {
         grid-template-columns: 1fr
     }
-}
 
+    .profile-settings-card {
+        grid-template-columns: 1fr;
+        gap: 24px
+    }
+
+    .profile-name-control {
+        grid-template-columns: 40px minmax(0, 1fr)
+    }
+
+    .profile-name-control .primary-btn {
+        grid-column: 1 / -1;
+        width: calc(100% - 12px);
+        margin: 0 6px 6px
+    }
+}

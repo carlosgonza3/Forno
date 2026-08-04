@@ -484,3 +484,82 @@ html[data-theme="dark"] .data-table {
 .ui-navigation-menu-content {
     padding: 6px
 }
+
+.ui-tabs-list {
+    position: relative;
+    display: inline-flex;
+    align-items: center
+}
+
+.ui-tabs-trigger {
+    position: relative;
+    z-index: 1;
+    border: 0;
+    background: transparent;
+    color: var(--muted)
+}
+
+.ui-tabs-trigger[data-active] {
+    color: var(--ink)
+}
+
+.ui-tabs-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px
+}
+
+.ui-tabs-indicator {
+    position: absolute;
+    transition: left .2s ease, width .2s ease, transform .2s ease
+}
+
+.ui-tabs-list[data-variant="line"] .ui-tabs-indicator {
+    bottom: 0;
+    left: var(--active-tab-left);
+    width: var(--active-tab-width);
+    height: 2px;
+    border-radius: 999px;
+    background: var(--accent)
+}
+
+.ui-tabs-content:focus-visible {
+    outline: none
+}
+
+.resizable-panel-group {
+    width: 100%;
+    height: 100%
+}
+
+.resizable-handle {
+    position: relative;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+    background: transparent;
+    cursor: grab !important
+}
+
+.resizable-handle:active,
+.resizable-handle[data-resize-handle-active] {
+    cursor: grabbing !important
+}
+
+.resizable-handle::before {
+    content: "";
+    width: 2px;
+    height: 54px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--line) 78%, transparent);
+    transition: width .16s ease, background .16s ease, box-shadow .16s ease
+}
+
+.resizable-handle:hover::before,
+.resizable-handle:focus-visible::before,
+.resizable-handle[data-resize-handle-active]::before {
+    width: 3px;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft)
+}

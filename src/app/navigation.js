@@ -9,7 +9,7 @@ import {
 import { RELEASE_SCOPES } from "../config/release";
 
 export const PAGE_TITLES = {
-  dashboard: "Buenos días, Carlos",
+  dashboard: "Resumen",
   inventory: "Inventario",
   prep: "Preparaciones",
   recipes: "Recetas",

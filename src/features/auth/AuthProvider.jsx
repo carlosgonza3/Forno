@@ -108,6 +108,13 @@ export function AuthProvider({ children }) {
     await loadIdentity(data.session);
   }, [loadIdentity]);
 
+  const updateDisplayName = useCallback(async (displayName) => {
+    if (!supabase) return {error: new Error("Supabase no está configurado.")};
+    const result = await supabase.rpc("update_own_display_name", {new_display_name: displayName});
+    if (!result.error) await refreshIdentity();
+    return result;
+  }, [refreshIdentity]);
+
   const value = useMemo(
     () => ({
       configured: isSupabaseConfigured,
@@ -123,8 +130,10 @@ export function AuthProvider({ children }) {
       signOut,
       requestPasswordReset,
       refreshIdentity,
+      updateDisplayName,
     }),
-    [assuranceLevel, error, loading, profile, refreshIdentity, requestPasswordReset, session, signIn, signOut],
+    [assuranceLevel, error, loading, profile, refreshIdentity, requestPasswordReset, session, signIn, signOut,
+      updateDisplayName],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

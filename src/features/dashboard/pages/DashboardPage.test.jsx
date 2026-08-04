@@ -28,6 +28,47 @@ describe("Dashboard inventory activity views", () => {
     loadCatalog.mockReset();
     loadCatalog.mockResolvedValue({items: [], suppliers: [], processedItems: []});
     loadInventoryAdditionTransactions.mockReset();
+    loadInventoryAdditionTransactions.mockResolvedValue({transactions: [], total: 0, page: 0, pageSize: 5});
+  });
+
+  it("opens inventory with the critical stock filter from the critical metric", async () => {
+    const onNavigate = vi.fn();
+    loadCatalog.mockResolvedValue({
+      items: [{id: "tomato", name: "Tomate", active: true, quantity: 0, reorder_point: 1, par_level: 3}],
+      suppliers: [],
+      processedItems: [],
+    });
+
+    render(<DashboardPage onNavigate={onNavigate}/>);
+    fireEvent.click(await screen.findByRole("button", {name: /^Críticos/}));
+
+    expect(onNavigate).toHaveBeenCalledWith("inventory", {stockFilter: "critical"});
+  });
+
+  it("shows the latest inventory movement in the service banner", async () => {
+    render(<DashboardPage onNavigate={vi.fn()} lastInventoryMovement={{
+      id: "1",
+      event_type: "processed_updated",
+      created_at: "2026-08-04T13:00:00.000Z",
+    }}/>);
+
+    expect(screen.getByText("Última actualización")).toBeInTheDocument();
+    expect(screen.getByText(/4 de agosto de 2026/)).toBeInTheDocument();
+    expect(screen.queryByText(/Próximo servicio/)).not.toBeInTheDocument();
+  });
+
+  it("opens inventory with the out-of-stock filter from the no-existence metric", async () => {
+    const onNavigate = vi.fn();
+    loadCatalog.mockResolvedValue({
+      items: [{id: "tomato", name: "Tomate", active: true, quantity: 0, reorder_point: 1, par_level: 3}],
+      suppliers: [],
+      processedItems: [],
+    });
+
+    render(<DashboardPage onNavigate={onNavigate}/>);
+    fireEvent.click(await screen.findByRole("button", {name: /^Sin existencia/}));
+
+    expect(onNavigate).toHaveBeenCalledWith("inventory", {stockFilter: "out"});
   });
 
   it("loads a month calendar and shows every activity for the selected day", async () => {
@@ -50,7 +91,6 @@ describe("Dashboard inventory activity views", () => {
       dateFrom: expect.any(String),
       dateTo: expect.any(String),
     })));
-    expect(document.querySelector(".inventory-activity-card")).not.toHaveClass("is-expanded");
     const currentDayButton = screen.getByRole("button", {
       name: new RegExp(`^${today.getDate()} de `, "i"),
     });
@@ -61,12 +101,19 @@ describe("Dashboard inventory activity views", () => {
     expect(dayButton.querySelector("i")).toBeInTheDocument();
 
     fireEvent.click(dayButton);
-    expect(document.querySelector(".inventory-activity-card")).not.toHaveClass("is-expanded");
     expect(await screen.findByText("2 actividades")).toBeInTheDocument();
     expect(screen.getByText(/Ana/)).toBeInTheDocument();
     expect(screen.getByText(/Carlos/)).toBeInTheDocument();
+    expect([...document.querySelectorAll(".calendar-day-list .transaction-copy small")]
+      .map((entry) => entry.textContent)).toEqual([
+      "1 ingrediente · Ana",
+      "1 ingrediente · Carlos",
+    ]);
 
-    fireEvent.click(screen.getByRole("button", {name: "Expandir"}));
-    expect(document.querySelector(".inventory-activity-card")).toHaveClass("is-expanded");
+    expect(screen.queryByRole("button", {name: "Expandir"})).not.toBeInTheDocument();
+    expect(screen.getByRole("separator", {name: "Redimensionar paneles del dashboard"}))
+      .toBeInTheDocument();
+    expect(document.querySelectorAll(".inventory-metric")).toHaveLength(4);
+    expect(document.querySelector(".stat-card")).not.toBeInTheDocument();
   });
 });

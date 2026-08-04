@@ -1,8 +1,11 @@
 import {useEffect, useMemo, useState} from "react";
 import {
   AlertTriangle, ArrowRight, ArrowUpDown, CheckCircle2, ChevronLeft, ChevronRight,
-  CalendarDays, CircleAlert, List, Maximize2, Minimize2, Package, PackageCheck, Truck, Warehouse, X,
+  CalendarDays, CircleAlert, Clock3, List, Package, PackageCheck, Truck, Warehouse, X,
 } from "lucide-react";
+import {
+  ResizableHandle, ResizablePanel, ResizablePanelGroup,
+} from "../../../components/ui/resizable";
 import {loadCatalog, loadInventoryAdditionTransactions} from "../../inventory/api/catalogRepository";
 import {
   inventoryDashboardSummary, quantityUnitLabel, sortCatalogItems, stockStatus,
@@ -10,16 +13,16 @@ import {
 import {FornoFox} from "../../../shared/branding/FornoBrand";
 import {IngredientIcon} from "../../inventory/ingredientIcons";
 
-function StatCard({label, value, detail, icon: Icon, tone, onClick, progress}) {
-  return <button type="button" className={`stat-card is-${tone}`} onClick={onClick}>
-    <span className="stat-card-top">
-      <span className={`stat-icon ${tone}`}><Icon size={18}/></span>
-      <span className="stat-card-label">{label}</span>
-      <ArrowRight className="stat-card-arrow" size={15}/>
+function InventoryMetric({label, value, detail, icon: Icon, tone, onClick, progress}) {
+  return <button type="button" className={`inventory-metric is-${tone}`} onClick={onClick}>
+    <span className="inventory-metric-head">
+      <span className={`inventory-metric-icon ${tone}`}><Icon size={15}/></span>
+      <span>{label}</span>
+      <ArrowRight size={13}/>
     </span>
-    <strong className="stat-card-value">{value}</strong>
-    <span className="stat-card-detail">{detail}</span>
-    {progress != null && <span className="stat-card-progress" aria-hidden="true">
+    <strong className="inventory-metric-value">{value}</strong>
+    <span className="inventory-metric-detail">{detail}</span>
+    {progress != null && <span className="inventory-metric-progress" aria-hidden="true">
       <i style={{width: `${Math.max(0, Math.min(100, progress))}%`}}/>
     </span>}
   </button>;
@@ -72,6 +75,22 @@ function InventoryTransactionDialog({transaction, onClose}) {
 function localDateKey(value) {
   const date = value instanceof Date ? value : new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function lastMovementTimeLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin actividad";
+  const dateLabel = date.toLocaleDateString("es-SV", {
+    day: "numeric", month: "long", year: "numeric",
+  });
+  return `${dateLabel} · ${date.toLocaleTimeString("es-SV", {
+    hour: "2-digit", minute: "2-digit",
+  })}`;
+}
+
+function orderTransactionsAscending(transactions) {
+  return [...transactions].sort((left, right) =>
+    new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
 }
 
 function InventoryTransactionRow({transaction, onSelect, showDate = true}) {
@@ -155,7 +174,6 @@ function RecentInventoryActivity() {
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [expanded, setExpanded] = useState(false);
   const [view, setView] = useState("list");
   const [month, setMonth] = useState(() => {
     const today = new Date();
@@ -164,8 +182,9 @@ function RecentInventoryActivity() {
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
-  const pageSize = expanded ? 10 : 5;
+  const pageSize = 5;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const orderedTransactions = useMemo(() => orderTransactionsAscending(transactions), [transactions]);
 
   useEffect(() => {
     let active = true;
@@ -207,20 +226,8 @@ function RecentInventoryActivity() {
       && nextMonth.getMonth() === today.getMonth() ? localDateKey(today) : null);
   }
 
-  function expandCard() {
-    if (expanded) return;
-    setPage(0);
-    setExpanded(true);
-  }
-
-  function collapseCard(event) {
-    event.stopPropagation();
-    setPage(0);
-    setExpanded(false);
-  }
-
   return <>
-    <div className={`panel activity-panel inventory-activity-card ${expanded ? "is-expanded" : ""}`}>
+    <div className="panel activity-panel inventory-activity-card">
       <div className="panel-head">
         <div><h2>Actividad de inventario</h2><p>{total} {total === 1
           ? "transacción registrada" : view === "calendar"
@@ -234,19 +241,15 @@ function RecentInventoryActivity() {
               aria-pressed={view === "calendar"} onClick={() => changeView("calendar")}>
               <CalendarDays size={14}/>Calendario</button>
           </div>
-          {expanded ? <button className="activity-collapse-button" onClick={collapseCard}>
-            <Minimize2 size={15}/>Contraer</button>
-            : <button className="activity-expand-button" onClick={expandCard}>
-              <Maximize2 size={15}/>Expandir</button>}
         </div>
       </div>
       {view === "calendar" ? (loading ? <div className="activity-loading"><div className="state-spinner"/>
         <span>Cargando calendario…</span></div> : <InventoryActivityCalendar month={month}
-          transactions={transactions} selectedDay={selectedDay} onMonthChange={changeMonth}
+          transactions={orderedTransactions} selectedDay={selectedDay} onMonthChange={changeMonth}
           onDaySelect={setSelectedDay} onSelect={setSelected}/>) : <div className="inventory-transaction-list">
         {loading ? <div className="activity-loading"><div className="state-spinner"/>
           <span>Cargando actividad…</span></div>
-          : transactions.length ? transactions.map((transaction) =>
+          : orderedTransactions.length ? orderedTransactions.map((transaction) =>
             <InventoryTransactionRow key={transaction.id} transaction={transaction} onSelect={setSelected}/>)
             : <div className="activity-empty"><Package size={22}/>
             <span>Aún no se han registrado actualizaciones.</span></div>}
@@ -265,7 +268,54 @@ function RecentInventoryActivity() {
   </>;
 }
 
-export default function DashboardPage({onNavigate}) {
+function AttentionPanel({catalogLoading, catalogError, attentionItems, onNavigate}) {
+  return <div className="panel attention-panel">
+    <div className="panel-head">
+      <div><span className="panel-kicker">PRIORIDAD</span><h2>Necesita atención</h2>
+        <p>Ordenado por urgencia de reposición</p></div>
+      <button className="text-btn" onClick={() => onNavigate("inventory")}>
+        Ver todos <ChevronRight size={15}/></button>
+    </div>
+    <div className="attention-list">
+      {catalogLoading ? <div className="dashboard-attention-state">
+        <div className="state-spinner"/>Cargando inventario…</div>
+        : catalogError ? <div className="dashboard-attention-state">
+          <AlertTriangle size={18}/>No se pudo cargar el inventario.</div>
+          : attentionItems.length ? attentionItems.slice(0, 4).map((item) =>
+            <div className="attention-row" key={item.id}>
+              <div className="food-icon"><IngredientIcon iconKey={item.icon_key}
+                iconEmoji={item.icon_emoji} size={17}/></div>
+              <div className="attention-info"><strong>{item.name}</strong>
+                <span><b>{Number(item.quantity).toLocaleString("es-SV")} {" "}
+                  {quantityUnitLabel(item.base_unit, item.quantity)}</b> disponibles · ideal{" "}
+                  {Number(item.par_level).toLocaleString("es-SV")}</span>
+                <div className="stock-line"><i style={{width: `${Math.min(100,
+                  Number(item.par_level) > 0
+                    ? Number(item.quantity) / Number(item.par_level) * 100 : 0)}%`}}/></div>
+              </div><div className="attention-row-end"><StockBadge item={item}/>
+                <small>Reorden: {Number(item.reorder_point).toLocaleString("es-SV")}</small></div>
+            </div>)
+            : <div className="dashboard-attention-state healthy"><CheckCircle2 size={18}/>
+              Todo el inventario está en buen nivel.</div>}
+    </div>
+  </div>;
+}
+
+function useCompactDashboard() {
+  const query = "(max-width: 1100px)";
+  const [compact, setCompact] = useState(() => typeof window !== "undefined"
+    && typeof window.matchMedia === "function" && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return undefined;
+    const media = window.matchMedia(query);
+    const update = (event) => setCompact(event.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return compact;
+}
+
+export default function DashboardPage({onNavigate, lastInventoryMovement = null}) {
   const [catalog, setCatalog] = useState({items: [], suppliers: []});
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
@@ -303,67 +353,61 @@ export default function DashboardPage({onNavigate}) {
   const healthyCoverage = summary.activeProducts
     ? Math.round(summary.healthyProducts / summary.activeProducts * 100)
     : 0;
+  const compactDashboard = useCompactDashboard();
+  const attentionPanel = <AttentionPanel catalogLoading={catalogLoading} catalogError={catalogError}
+    attentionItems={attentionItems} onNavigate={onNavigate}/>;
 
   return <>
     <section className="service-banner">
       <div className="banner-mark"><FornoFox size={64}/></div>
       <div>FORNO <br/><span> SAN BENITO </span></div>
-      <div className="banner-status"><i/><span>Próximo servicio</span><strong>6:00 PM</strong></div>
+      <div className="banner-inventory-update">
+        <Clock3 size={16}/>
+        <span>Última actualización</span>
+        <strong title={lastInventoryMovement
+          ? new Date(lastInventoryMovement.created_at).toLocaleString("es-SV") : undefined}>
+          {lastInventoryMovement ? lastMovementTimeLabel(lastInventoryMovement.created_at) : "Sin actividad"}
+        </strong>
+      </div>
     </section>
     <section className="dashboard-overview-head">
-      <div><span className="eyebrow">RESUMEN OPERATIVO</span><h2>Estado del inventario</h2>
-        <p>Prioridades y cobertura de los ingredientes activos.</p></div>
+      <div>
+          {/*<span className="eyebrow">RESUMEN OPERATIVO</span>*/}
+          <h2>Resumen</h2>
+        </div>
       <button className="text-btn" onClick={() => onNavigate("inventory")}>
         Abrir inventario <ArrowRight size={15}/></button>
     </section>
     <section className="dashboard-stock-summary">
-      <StatCard label="Por reponer" value={metricValue(summary.restockProducts)}
+      <InventoryMetric label="Por reponer" value={metricValue(summary.restockProducts)}
         detail={metricDetail(`${summary.lowProducts} bajos · ${summary.criticalProducts} críticos`)}
         icon={Truck} tone="gold" onClick={() => onNavigate("shopping")}/>
-      <StatCard label="Críticos" value={metricValue(summary.criticalProducts)}
+      <InventoryMetric label="Críticos" value={metricValue(summary.criticalProducts)}
         detail={metricDetail(summary.criticalProducts
           ? "Llegaron al punto de reorden" : "Sin urgencias en este momento")}
-        icon={CircleAlert} tone="clay" onClick={() => onNavigate("inventory")}/>
-      <StatCard label="Sin existencia" value={metricValue(summary.productsWithoutExistence)}
+        icon={CircleAlert} tone="clay"
+        onClick={() => onNavigate("inventory", {stockFilter: "critical"})}/>
+      <InventoryMetric label="Sin existencia" value={metricValue(summary.productsWithoutExistence)}
         detail={metricDetail(`de ${summary.activeProducts} ingredientes activos`)}
-        icon={Warehouse} tone="blue" onClick={() => onNavigate("inventory")}/>
-      <StatCard label="Cobertura saludable" value={metricValue(healthyCoverage, "%")}
+        icon={Warehouse} tone="blue"
+        onClick={() => onNavigate("inventory", {stockFilter: "out"})}/>
+      <InventoryMetric label="Cobertura saludable" value={metricValue(healthyCoverage, "%")}
         detail={metricDetail(`${summary.healthyProducts} ingredientes en nivel óptimo`)}
         icon={PackageCheck} tone="green" progress={healthyCoverage}
         onClick={() => onNavigate("inventory")}/>
     </section>
-    <section className="dashboard-grid">
-      <div className="panel attention-panel">
-        <div className="panel-head">
-          <div><span className="panel-kicker">PRIORIDAD</span><h2>Necesita atención</h2>
-            <p>Ordenado por urgencia de reposición</p></div>
-          <button className="text-btn" onClick={() => onNavigate("inventory")}>
-            Ver todos <ChevronRight size={15}/></button>
-        </div>
-        <div className="attention-list">
-          {catalogLoading ? <div className="dashboard-attention-state">
-            <div className="state-spinner"/>Cargando inventario…</div>
-            : catalogError ? <div className="dashboard-attention-state">
-              <AlertTriangle size={18}/>No se pudo cargar el inventario.</div>
-              : attentionItems.length ? attentionItems.slice(0, 4).map((item) =>
-                <div className="attention-row" key={item.id}>
-                  <div className="food-icon"><IngredientIcon iconKey={item.icon_key}
-                    iconEmoji={item.icon_emoji} size={17}/></div>
-                  <div className="attention-info"><strong>{item.name}</strong>
-                    <span><b>{Number(item.quantity).toLocaleString("es-SV")}{" "}
-                      {quantityUnitLabel(item.base_unit, item.quantity)}</b> disponibles · ideal{" "}
-                      {Number(item.par_level).toLocaleString("es-SV")}</span>
-                    <div className="stock-line"><i style={{width: `${Math.min(100,
-                      Number(item.par_level) > 0
-                        ? Number(item.quantity) / Number(item.par_level) * 100 : 0)}%`}}/></div>
-                  </div><div className="attention-row-end"><StockBadge item={item}/>
-                    <small>Reorden: {Number(item.reorder_point).toLocaleString("es-SV")}</small></div>
-                </div>)
-                : <div className="dashboard-attention-state healthy"><CheckCircle2 size={18}/>
-                  Todo el inventario está en buen nivel.</div>}
-        </div>
-      </div>
-      <RecentInventoryActivity/>
-    </section>
+    {compactDashboard ? <section className="dashboard-grid dashboard-grid-stacked">
+      {attentionPanel}<RecentInventoryActivity/>
+    </section> : <section className="dashboard-split-shell">
+      <ResizablePanelGroup className="dashboard-resizable" orientation="horizontal">
+        <ResizablePanel className="dashboard-resizable-panel" id="attention" defaultSize="38%" minSize="38%">
+          {attentionPanel}
+        </ResizablePanel>
+        <ResizableHandle aria-label="Redimensionar paneles del dashboard"/>
+        <ResizablePanel className="dashboard-resizable-panel" id="activity" defaultSize="62%" minSize="30%">
+          <RecentInventoryActivity/>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </section>}
   </>;
 }

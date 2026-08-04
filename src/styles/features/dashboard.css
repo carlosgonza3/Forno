@@ -11,11 +11,21 @@
 }
 
 .attention-panel {
-    border-color: color-mix(in srgb, var(--line) 88%, transparent);
-    box-shadow: 0 1px 2px rgba(43, 34, 29, .03), 0 9px 24px rgba(43, 34, 29, .045)
+    border-color: color-mix(in srgb, var(--line) 72%, #bd5839 28%);
+    background: linear-gradient(145deg,
+        color-mix(in srgb, var(--paper) 91%, #bd5839 9%),
+        color-mix(in srgb, var(--paper) 97%, #b3822c 3%) 62%,
+        var(--paper));
+    box-shadow: 0 1px 2px rgba(43, 34, 29, .04), 0 14px 34px rgba(93, 48, 35, .07)
 }
 
 .inventory-activity-card {
+    border-color: color-mix(in srgb, var(--line) 90%, var(--ink) 10%);
+    background: linear-gradient(145deg,
+        color-mix(in srgb, var(--paper) 96%, var(--page) 4%),
+        color-mix(in srgb, var(--paper) 98%, var(--canvas) 2%) 62%,
+        var(--paper));
+    box-shadow: 0 1px 2px rgba(43, 34, 29, .04), 0 14px 34px rgba(43, 34, 29, .055);
     transition: grid-column .2s ease, box-shadow .2s ease, min-height .2s ease
 }
 
@@ -60,56 +70,12 @@
     }
 }
 
-.inventory-activity-card[role="button"] {
-    cursor: pointer
-}
-
-.inventory-activity-card[role="button"]:hover {
-    box-shadow: 0 14px 34px rgba(41, 35, 31, .1)
-}
-
-.inventory-activity-card[role="button"]:focus-visible {
-    outline: 3px solid var(--accent-ring);
-    outline-offset: 3px
-}
-
-.dashboard-grid > .inventory-activity-card.is-expanded {
-    grid-column: 1 / -1;
-    min-height: 430px
-}
-
 .inventory-activity-card .panel-head h2 {
     font-size: 15px
 }
 
 .inventory-activity-card .panel-head p {
     font-size: 11px
-}
-
-.activity-expand-button,
-.activity-collapse-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: var(--accent-text);
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap
-}
-
-.activity-expand-button,
-.activity-collapse-button {
-    min-height: 34px;
-    padding: 0 13px;
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-    border-radius: 8px;
-    background: var(--accent-soft)
-}
-
-.activity-expand-button:hover,
-.activity-collapse-button:hover {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent-soft) 75%, var(--accent) 25%)
 }
 
 .activity-panel-actions,
@@ -247,11 +213,11 @@
     border-left: 1px solid var(--line)
 }
 
-.inventory-activity-card:not(.is-expanded) .inventory-activity-calendar {
+.inventory-activity-calendar {
     grid-template-columns: 1fr
 }
 
-.inventory-activity-card:not(.is-expanded) .activity-calendar-selection {
+.inventory-activity-card .activity-calendar-selection {
     grid-column: 1;
     grid-row: auto;
     min-height: 0;
@@ -468,12 +434,6 @@
     margin-top: 18px
 }
 
-html[data-theme="dark"] .inventory-activity-card[role="button"]:hover {
-    box-shadow: 0 14px 34px rgba(0, 0, 0, .28)
-}
-
-html[data-theme="dark"] .activity-expand-button,
-html[data-theme="dark"] .activity-collapse-button,
 html[data-theme="dark"] .activity-pagination button:hover:not(:disabled) {
     border-color: #75443c;
     background: var(--accent-soft);
@@ -500,7 +460,6 @@ html[data-theme="dark"] .inventory-transaction-row {
     color: var(--ink)
 }
 
-html[data-theme="dark"] .activity-expand-button,
 html[data-theme="dark"] .activity-pagination button {
     color: var(--accent-text)
 }
@@ -584,5 +543,255 @@ html[data-theme="dark"] .inventory-transaction-dialog .subtraction-pill {
 
     .transaction-detail-table {
         max-height: calc(100dvh - 280px)
+    }
+}
+
+/* Dashboard metric rail */
+.dashboard-stock-summary {
+    gap: 11px;
+    margin-bottom: 24px;
+    border: 0
+}
+
+.inventory-metric {
+    position: relative;
+    min-width: 0;
+    min-height: 126px;
+    padding: 18px 24px 17px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--line) 67%, var(--metric-color) 33%);
+    border-radius: 12px;
+    color: var(--ink);
+    background: linear-gradient(150deg,
+        color-mix(in srgb, var(--paper) 87%, var(--metric-color) 13%),
+        color-mix(in srgb, var(--paper) 97%, var(--metric-color) 3%) 68%,
+        var(--paper));
+    box-shadow: 0 1px 2px rgba(42, 31, 26, .035), 0 8px 22px rgba(42, 31, 26, .045);
+    text-align: left;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease
+}
+
+.inventory-metric::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 23px;
+    width: 42px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--metric-color)
+}
+
+.inventory-metric.is-gold { --metric-color: #b3822c }
+.inventory-metric.is-clay { --metric-color: #bd5839 }
+.inventory-metric.is-blue { --metric-color: #477983 }
+.inventory-metric.is-green { --metric-color: #54775d }
+
+.inventory-metric:hover {
+    border-color: color-mix(in srgb, var(--line) 40%, var(--metric-color) 60%);
+    box-shadow: 0 2px 4px rgba(42, 31, 26, .045),
+        0 13px 30px color-mix(in srgb, var(--metric-color) 12%, transparent);
+    transform: translateY(-2px)
+}
+
+.inventory-metric:focus-visible {
+    z-index: 1;
+    outline: 3px solid var(--accent-ring);
+    outline-offset: -3px
+}
+
+.inventory-metric-head {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .035em;
+    text-transform: uppercase
+}
+
+.inventory-metric-head > svg {
+    opacity: 0;
+    color: var(--metric-color);
+    transform: translateX(-3px);
+    transition: opacity .16s ease, transform .16s ease
+}
+
+.inventory-metric:hover .inventory-metric-head > svg {
+    opacity: 1;
+    transform: translateX(0)
+}
+
+.inventory-metric-icon {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--metric-color);
+    background: color-mix(in srgb, var(--metric-color) 11%, transparent)
+}
+
+.inventory-metric-value {
+    align-self: end;
+    margin-top: 12px;
+    font: 760 32px Manrope;
+    letter-spacing: -.055em;
+    line-height: 1
+}
+
+.inventory-metric-detail {
+    margin-top: 7px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.inventory-metric-progress {
+    position: static;
+    width: 100%;
+    height: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--line) 75%, transparent)
+}
+
+.inventory-metric-progress i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--metric-color)
+}
+
+/* Resizable operational workspace */
+.dashboard-split-shell {
+    min-height: 370px
+}
+
+.dashboard-resizable {
+    height: auto;
+    min-height: 370px;
+    align-items: flex-start
+}
+
+.dashboard-resizable-panel {
+    height: auto;
+    padding: 0 2px
+}
+
+.dashboard-resizable-panel > .panel {
+    height: auto;
+    min-height: 370px
+}
+
+.dashboard-resizable > .resizable-handle {
+    align-self: stretch;
+    min-height: 370px
+}
+
+.dashboard-resizable-panel .inventory-activity-card {
+    container: inventory-activity / inline-size
+}
+
+@container inventory-activity (min-width: 760px) {
+    .inventory-activity-card .inventory-activity-calendar {
+        grid-template-columns: minmax(360px, .9fr) minmax(340px, 1.1fr)
+    }
+
+    .inventory-activity-card .activity-calendar-selection {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+        min-height: 332px;
+        margin-top: 0;
+        padding: 0 0 0 24px;
+        border-top: 0;
+        border-left: 1px solid var(--line)
+    }
+}
+
+html[data-theme="dark"] .inventory-metric:hover {
+    border-color: color-mix(in srgb, var(--line) 45%, var(--metric-color) 55%);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .18),
+        0 16px 34px color-mix(in srgb, var(--metric-color) 10%, rgba(0, 0, 0, .28))
+}
+
+html[data-theme="dark"] .inventory-metric {
+    background: linear-gradient(150deg,
+        color-mix(in srgb, var(--paper) 82%, var(--metric-color) 18%),
+        color-mix(in srgb, var(--paper) 94%, var(--metric-color) 6%) 68%,
+        var(--paper));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 12px 28px rgba(0, 0, 0, .12)
+}
+
+html[data-theme="dark"] .attention-panel {
+    border-color: color-mix(in srgb, var(--line) 58%, #bd6854 42%);
+    background: linear-gradient(145deg,
+        color-mix(in srgb, var(--paper) 83%, #8f4035 17%),
+        color-mix(in srgb, var(--paper) 94%, #8d6230 6%) 65%,
+        var(--paper));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .22), 0 18px 38px rgba(51, 19, 15, .2)
+}
+
+html[data-theme="dark"] .inventory-activity-card {
+    border-color: color-mix(in srgb, var(--line) 90%, var(--ink) 10%);
+    background: linear-gradient(145deg,
+        color-mix(in srgb, var(--paper) 94%, var(--page) 6%),
+        color-mix(in srgb, var(--paper) 97%, var(--canvas) 3%) 65%,
+        var(--paper));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .22), 0 18px 38px rgba(0, 0, 0, .16)
+}
+
+@media (max-width: 1100px) {
+    .dashboard-stock-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+    }
+
+    .dashboard-stock-summary {
+        gap: 10px
+    }
+}
+
+@media (max-width: 620px) {
+    .inventory-metric {
+        min-height: 112px;
+        padding: 15px 14px
+    }
+
+    .inventory-metric::before {
+        left: 14px
+    }
+
+    .inventory-metric-value {
+        font-size: 26px
+    }
+
+    .inventory-metric-progress {
+        right: 14px;
+        bottom: 13px;
+        left: 14px
+    }
+}
+
+@media (max-width: 420px) {
+    .dashboard-stock-summary {
+        grid-template-columns: 1fr
+    }
+
+    .inventory-metric,
+    .inventory-metric:nth-child(2) {
+        border-right: 0;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 82%, transparent)
+    }
+
+    .inventory-metric:last-child {
+        border-bottom: 0
     }
 }
