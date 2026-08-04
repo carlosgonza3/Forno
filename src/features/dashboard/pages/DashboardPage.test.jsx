@@ -71,6 +71,24 @@ describe("Dashboard inventory activity views", () => {
     expect(onNavigate).toHaveBeenCalledWith("inventory", {stockFilter: "out"});
   });
 
+  it("shows the newest inventory activity first in list view", async () => {
+    const older = transaction("older", new Date(2026, 7, 2, 9, 0), "Ana");
+    const newer = transaction("newer", new Date(2026, 7, 4, 18, 30), "Carlos");
+    loadInventoryAdditionTransactions.mockResolvedValue({
+      transactions: [older, newer], total: 2, page: 0, pageSize: 5,
+    });
+
+    render(<DashboardPage onNavigate={vi.fn()}/>);
+    await screen.findByText(/Carlos/);
+
+    expect([...document.querySelectorAll(
+      ".inventory-activity-card > .inventory-transaction-list .transaction-copy small",
+    )].map((entry) => entry.textContent)).toEqual([
+      "1 ingrediente · Carlos",
+      "1 ingrediente · Ana",
+    ]);
+  });
+
   it("loads a month calendar and shows every activity for the selected day", async () => {
     const today = new Date();
     const activityDay = Math.min(12, new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate());

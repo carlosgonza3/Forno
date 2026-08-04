@@ -93,6 +93,11 @@ function orderTransactionsAscending(transactions) {
     new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
 }
 
+function orderTransactionsDescending(transactions) {
+  return [...transactions].sort((left, right) =>
+    new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
+}
+
 function InventoryTransactionRow({transaction, onSelect, showDate = true}) {
   const date = new Date(transaction.created_at);
   return <button className="inventory-transaction-row" onClick={(event) => {
@@ -184,7 +189,8 @@ function RecentInventoryActivity() {
   const [loading, setLoading] = useState(true);
   const pageSize = 5;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const orderedTransactions = useMemo(() => orderTransactionsAscending(transactions), [transactions]);
+  const calendarTransactions = useMemo(() => orderTransactionsAscending(transactions), [transactions]);
+  const listTransactions = useMemo(() => orderTransactionsDescending(transactions), [transactions]);
 
   useEffect(() => {
     let active = true;
@@ -194,6 +200,7 @@ function RecentInventoryActivity() {
       pageSize: 1000,
       dateFrom: new Date(month.getFullYear(), month.getMonth(), 1).toISOString(),
       dateTo: new Date(month.getFullYear(), month.getMonth() + 1, 1).toISOString(),
+      ascending: true,
     } : {page, pageSize};
     loadInventoryAdditionTransactions(request)
       .then((result) => {
@@ -245,11 +252,11 @@ function RecentInventoryActivity() {
       </div>
       {view === "calendar" ? (loading ? <div className="activity-loading"><div className="state-spinner"/>
         <span>Cargando calendario…</span></div> : <InventoryActivityCalendar month={month}
-          transactions={orderedTransactions} selectedDay={selectedDay} onMonthChange={changeMonth}
+          transactions={calendarTransactions} selectedDay={selectedDay} onMonthChange={changeMonth}
           onDaySelect={setSelectedDay} onSelect={setSelected}/>) : <div className="inventory-transaction-list">
         {loading ? <div className="activity-loading"><div className="state-spinner"/>
           <span>Cargando actividad…</span></div>
-          : orderedTransactions.length ? orderedTransactions.map((transaction) =>
+          : listTransactions.length ? listTransactions.map((transaction) =>
             <InventoryTransactionRow key={transaction.id} transaction={transaction} onSelect={setSelected}/>)
             : <div className="activity-empty"><Package size={22}/>
             <span>Aún no se han registrado actualizaciones.</span></div>}

@@ -193,13 +193,14 @@ export async function loadInventoryAdditionTransactions({
   pageSize = 5,
   dateFrom = null,
   dateTo = null,
+  ascending = false,
 } = {}) {
   const client = requireClient();
   const from = page * pageSize;
   let transactionsQuery = client
     .from("inventory_addition_transactions")
     .select("id, created_by, item_count, created_at", { count: "exact" })
-    .order("created_at", { ascending: true });
+    .order("created_at", {ascending});
   if (dateFrom) transactionsQuery = transactionsQuery.gte("created_at", dateFrom);
   if (dateTo) transactionsQuery = transactionsQuery.lt("created_at", dateTo);
   const transactionsResult = await transactionsQuery.range(from, from + pageSize - 1);
