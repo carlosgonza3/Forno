@@ -41,6 +41,7 @@ vi.mock("emoji-picker-react", () => ({
 }));
 
 const produce = { id: "produce", name: "Frutas y verduras", sort_order: 10 };
+const beverages = { id: "beverages", name: "Otras bebidas", sort_order: 70 };
 const pantry = { id: "pantry", name: "Otros", sort_order: 99 };
 const market = { id: "market", name: "Mercado", active: true };
 
@@ -76,18 +77,22 @@ describe("CatalogPage inventory explorer", () => {
     setInventoryExistences.mockResolvedValue([]);
     downloadInventoryCsv.mockClear();
     loadCatalog.mockResolvedValue({
-      departments: [produce, pantry],
+      departments: [produce, beverages, pantry],
       suppliers: [market],
       iconFieldAvailable: true,
       emojiFieldAvailable: true,
       items: [
-        item({ id: "tomato", name: "Tomate", sku: "FOR-001", quantity: 1, par: 10, reorder: 2, department: produce }),
+        {...item({ id: "tomato", name: "Tomate", sku: "FOR-001", quantity: 1, par: 10, reorder: 2, department: produce }),
+          last_note: "Conteo de apertura"},
         item({ id: "lime", name: "Limón", sku: "FOR-002", quantity: 8, par: 10, reorder: 2, department: produce }),
         item({ id: "flour", name: "Harina", sku: "FOR-003", quantity: 20, par: 20, reorder: 5, department: pantry }),
+        {...item({ id: "wine", name: "Vino tinto", sku: "FOR-005", quantity: 6, par: 12,
+          reorder: 3, department: beverages }), last_note: "Seis botellas en cava"},
         item({ id: "retired", name: "Producto archivado", sku: "FOR-004", quantity: 0, par: 0, reorder: 0, department: pantry, active: false }),
       ],
       processedItems: [
-        item({id: "pesto", name: "Pesto", sku: "PROC-001", quantity: 500, par: 0, reorder: 0}),
+        {...item({id: "pesto", name: "Pesto", sku: "PROC-001", quantity: 500, par: 0, reorder: 0}),
+          last_note: "Producción del viernes"},
       ],
     });
   });
@@ -98,7 +103,7 @@ describe("CatalogPage inventory explorer", () => {
     expect(await screen.findByText("Tomate")).toBeInTheDocument();
     expect(screen.getByRole("tablist", {name: "Secciones de inventario"})).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((button) => button.textContent.trim()))
-      .toEqual(["Ingredientes", "Preparados", "Proveedores"]);
+      .toEqual(["Ingredientes", "Preparados", "Bebidas", "Proveedores"]);
     expect(screen.getByRole("tab", {name: "Ingredientes"})).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("region", {name: "Resumen de ingredientes"})).toHaveTextContent("Por reponer");
     expect(screen.getByRole("menubar", { name: "Opciones de tabla" })).toBeInTheDocument();
@@ -113,6 +118,7 @@ describe("CatalogPage inventory explorer", () => {
     expect(await screen.findByRole("button", { name: /Frutas y verduras/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Otros/ })).toBeInTheDocument();
     expect(screen.getByText("Harina")).toBeInTheDocument();
+    expect(screen.queryByText("Vino tinto")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Estado" }));
     fireEvent.click(await screen.findByRole("menuitemradio", { name: /Críticos/ }));
@@ -164,6 +170,58 @@ describe("CatalogPage inventory explorer", () => {
     expect(screen.getByRole("textbox", {name: "Buscar ingrediente"})).toBeInTheDocument();
     expect(document.querySelector(".inventory-results-bar")).not.toBeInTheDocument();
     expect(screen.getByRole("region", {name: "Resumen de preparados"})).toHaveTextContent("Disponibilidad");
+    expect(screen.getByText("Producción del viernes")).toBeInTheDocument();
+  });
+
+  it("separates beverages into their own table with latest notes and status", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+
+    fireEvent.click(screen.getByRole("tab", {name: "Bebidas"}));
+
+    expect(await screen.findByText("Vino tinto")).toBeInTheDocument();
+    expect(screen.queryByText("Tomate")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent.trim()))
+      .toEqual(["Nombre", "Inventario", "Última nota", "Estado"]);
+    expect(screen.getByText("Ideal 12")).toBeInTheDocument();
+    expect(screen.getByText("Seis botellas en cava")).toBeInTheDocument();
+    expect(screen.getByText("Óptimo")).toBeInTheDocument();
+    expect(screen.getByRole("region", {name: "Resumen de bebidas"})).toHaveTextContent("Disponibilidad");
+  });
+
+  it("places beverage actions horizontally in the rightmost table column for admins", async () => {
+    authRole = "admin";
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+    fireEvent.click(screen.getByRole("tab", {name: "Bebidas"}));
+
+    const row = (await screen.findByText("Vino tinto")).closest("tr");
+    const cells = row.querySelectorAll("td");
+    expect(cells).toHaveLength(5);
+    expect(cells[4]).toContainElement(screen.getByRole("button", {name: "Editar Vino tinto"}));
+    expect(cells[4]).toContainElement(screen.getByRole("button", {name: "Desactivar Vino tinto"}));
+    expect(cells[4].querySelector(".row-actions")).toBeInTheDocument();
+  });
+
+  it("updates beverage existences without including regular ingredients", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+    fireEvent.click(screen.getByRole("tab", {name: "Bebidas"}));
+    await screen.findByText("Vino tinto");
+
+    fireEvent.click(screen.getByRole("button", {name: "Actualizar existencias"}));
+    expect(screen.getByLabelText("Nueva existencia de Vino tinto")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nueva existencia de Tomate")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Departamento")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Agrupación")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Nueva existencia de Vino tinto"), {target: {value: "5"}});
+    fireEvent.change(screen.getByLabelText("Nota de Vino tinto"), {target: {value: "Una botella vendida"}});
+    fireEvent.click(screen.getByRole("button", {name: /Continuar/}));
+    fireEvent.click(screen.getByRole("button", {name: /Confirmar y guardar/}));
+
+    await waitFor(() => expect(setInventoryExistences).toHaveBeenCalledWith([
+      expect.objectContaining({id: "wine", newQuantity: 5, note: "Una botella vendida"}),
+    ]));
   });
 
   it("updates processed-item existences through the separate processed inventory workflow", async () => {
@@ -174,6 +232,8 @@ describe("CatalogPage inventory explorer", () => {
     await screen.findByText("Pesto");
     fireEvent.click(screen.getByRole("button", {name: "Actualizar existencias"}));
 
+    expect(screen.queryByLabelText("Departamento")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Agrupación")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Nueva existencia de Pesto"), {target: {value: "475"}});
     fireEvent.change(screen.getByLabelText("Nota de Pesto"), {target: {value: "Conteo de producción"}});
     fireEvent.click(screen.getByRole("button", {name: /Continuar/}));

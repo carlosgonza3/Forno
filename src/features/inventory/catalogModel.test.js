@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   groupCatalogItems,
   inventoryDashboardSummary,
+  isBeverageItem,
   lowStockThreshold,
   matchesCatalogItem,
   quantityUnitLabel,
@@ -41,6 +42,13 @@ describe("catalog model", () => {
     const unassigned = { name: "Otro", department: null };
     const groups = groupCatalogItems([unassigned, assigned], "department");
     expect(groups.map((group) => group.label)).toEqual(["Frutas", "Sin departamento"]);
+  });
+
+  it("recognizes existing beverage and wine departments without changing their records", () => {
+    expect(isBeverageItem({department: {name: "Bebidas"}})).toBe(true);
+    expect(isBeverageItem({department: {name: "Otras bebidas"}})).toBe(true);
+    expect(isBeverageItem({department: {name: "Vinos"}})).toBe(true);
+    expect(isBeverageItem({department: {name: "Frutas y verduras"}})).toBe(false);
   });
 
   it("provides Spanish labels for canonical units", () => {

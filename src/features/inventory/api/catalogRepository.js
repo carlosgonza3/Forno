@@ -67,21 +67,39 @@ async function loadCatalogItems(client) {
 
 export async function loadCatalog() {
   const client = requireClient();
-  const [itemsResult, processedItemsResult, departmentsResult, suppliersResult] = await Promise.all([
+  const [itemsResult, processedItemsResult, departmentsResult, suppliersResult, notesResult] = await Promise.all([
     loadCatalogItems(client),
     client.from("processed_inventory_items").select(PROCESSED_ITEM_SELECT).order("name"),
     client.from("departments").select("id, name, sort_order").order("sort_order").order("name"),
     client.from("suppliers").select("id, name, email, phone, active").order("name"),
+    client.rpc("get_latest_inventory_notes"),
   ]);
 
   throwIfError(itemsResult.error);
   throwIfError(processedItemsResult.error);
   throwIfError(departmentsResult.error);
   throwIfError(suppliersResult.error);
+  if (notesResult.error && !["42883", "PGRST202"].includes(notesResult.error.code)) {
+    throwIfError(notesResult.error);
+  }
+
+  const latestNotes = notesResult.error ? [] : (notesResult.data ?? []);
+  const itemNotes = new Map(latestNotes.filter((entry) => entry.inventory_type === "ingredient")
+    .map((entry) => [entry.item_id, entry]));
+  const processedNotes = new Map(latestNotes.filter((entry) => entry.inventory_type === "processed")
+    .map((entry) => [entry.item_id, entry]));
 
   return {
-    items: itemsResult.data ?? [],
-    processedItems: processedItemsResult.data ?? [],
+    items: (itemsResult.data ?? []).map((item) => ({
+      ...item,
+      last_note: itemNotes.get(item.id)?.note ?? null,
+      last_note_at: itemNotes.get(item.id)?.updated_at ?? null,
+    })),
+    processedItems: (processedItemsResult.data ?? []).map((item) => ({
+      ...item,
+      last_note: processedNotes.get(item.id)?.note ?? null,
+      last_note_at: processedNotes.get(item.id)?.updated_at ?? null,
+    })),
     departments: departmentsResult.data ?? [],
     suppliers: suppliersResult.data ?? [],
     iconFieldAvailable,

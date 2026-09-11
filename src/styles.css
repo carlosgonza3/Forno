@@ -19,3 +19,52 @@
 @import "./styles/features/inventory-dialogs.css";
 @import "./styles/features/dashboard.css";
 @import "./styles/features/purchasing.css";
+
+/* Text-entry focus stays visible without using the orange accent treatment. */
+:is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea
+):focus-visible {
+    outline: none
+}
+
+:is(
+    .ui-input-group,
+    .profile-name-control,
+    .department-create-control,
+    .auth-input,
+    .mfa-code-input,
+    .increment-field,
+    .export-filename-field > div
+):focus-within {
+    border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
+    box-shadow: none
+}
+
+.catalog-field input:focus,
+.adjustment-note-input:focus {
+    border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
+    box-shadow: none
+}
+
+html[data-theme="dark"] :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea
+):focus-visible {
+    outline: none
+}
+
+html[data-theme="dark"] :is(
+    .ui-input-group,
+    .profile-name-control,
+    .department-create-control,
+    .auth-input,
+    .mfa-code-input,
+    .increment-field,
+    .export-filename-field > div
+):focus-within,
+html[data-theme="dark"] .catalog-field input:focus,
+html[data-theme="dark"] .adjustment-note-input:focus {
+    border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
+    box-shadow: none
+}

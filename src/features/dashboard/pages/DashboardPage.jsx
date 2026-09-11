@@ -7,6 +7,7 @@ import {
   ResizableHandle, ResizablePanel, ResizablePanelGroup,
 } from "../../../components/ui/resizable";
 import {loadCatalog, loadInventoryAdditionTransactions} from "../../inventory/api/catalogRepository";
+import {loadPurchaseDashboardSummary} from "../../purchasing/api/shoppingRepository";
 import {
   inventoryDashboardSummary, quantityUnitLabel, sortCatalogItems, stockStatus,
 } from "../../inventory/catalogModel";
@@ -326,6 +327,16 @@ export default function DashboardPage({onNavigate, lastInventoryMovement = null}
   const [catalog, setCatalog] = useState({items: [], suppliers: []});
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
+  const [orderSummary, setOrderSummary] = useState({
+    pendingOrders: 0,
+    pendingItems: 0,
+    monthlyOrders: 0,
+    monthlyPending: 0,
+    monthlyCompleted: 0,
+    monthlyCancelled: 0,
+  });
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -346,6 +357,25 @@ export default function DashboardPage({onNavigate, lastInventoryMovement = null}
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setOrdersLoading(true);
+    setOrdersError(false);
+    loadPurchaseDashboardSummary()
+      .then((result) => {
+        if (active) setOrderSummary(result);
+      })
+      .catch(() => {
+        if (active) setOrdersError(true);
+      })
+      .finally(() => {
+        if (active) setOrdersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const summary = useMemo(
     () => inventoryDashboardSummary(catalog.items, catalog.suppliers),
     [catalog.items, catalog.suppliers],
@@ -357,6 +387,9 @@ export default function DashboardPage({onNavigate, lastInventoryMovement = null}
   const metricValue = (value, suffix = "") => catalogLoading || catalogError ? "—" : `${value}${suffix}`;
   const metricDetail = (value) => catalogLoading ? "Cargando inventario…"
     : catalogError ? "No se pudo actualizar" : value;
+  const orderMetricValue = (value) => ordersLoading || ordersError ? "—" : value;
+  const orderMetricDetail = (value) => ordersLoading ? "Cargando órdenes…"
+    : ordersError ? "No se pudo actualizar" : value;
   const healthyCoverage = summary.activeProducts
     ? Math.round(summary.healthyProducts / summary.activeProducts * 100)
     : 0;
@@ -402,6 +435,24 @@ export default function DashboardPage({onNavigate, lastInventoryMovement = null}
         detail={metricDetail(`${summary.healthyProducts} ingredientes en nivel óptimo`)}
         icon={PackageCheck} tone="green" progress={healthyCoverage}
         onClick={() => onNavigate("inventory")}/>
+    </section>
+    <section className="dashboard-order-section" aria-labelledby="dashboard-orders-title">
+      <div className="dashboard-order-heading">
+        <div><span className="eyebrow">COMPRAS</span><h2 id="dashboard-orders-title">Órdenes</h2></div>
+        <button className="text-btn" onClick={() => onNavigate("shopping")}>Ver órdenes
+          <ArrowRight size={15}/></button>
+      </div>
+      <div className="dashboard-order-insights">
+        <InventoryMetric label="Órdenes pendientes" value={orderMetricValue(orderSummary.pendingOrders)}
+          detail={orderMetricDetail(orderSummary.pendingOrders
+            ? `${orderSummary.pendingItems} ${orderSummary.pendingItems === 1
+              ? "ingrediente por recibir" : "ingredientes por recibir"}`
+            : "No hay órdenes esperando recepción")}
+          icon={Clock3} tone="gold" onClick={() => onNavigate("shopping")}/>
+        <InventoryMetric label="Órdenes creadas este mes" value={orderMetricValue(orderSummary.monthlyOrders)}
+          detail={orderMetricDetail(`${orderSummary.monthlyCompleted} completadas · ${orderSummary.monthlyPending} pendientes · ${orderSummary.monthlyCancelled} canceladas`)}
+          icon={CalendarDays} tone="blue" onClick={() => onNavigate("shopping")}/>
+      </div>
     </section>
     {compactDashboard ? <section className="dashboard-grid dashboard-grid-stacked">
       {attentionPanel}<RecentInventoryActivity/>

@@ -15,7 +15,7 @@ export async function loadShoppingWorkspace() {
       .select("item_id, quantity_override, quantity_manually_overridden, included, updated_at"),
     client.from("purchase_list_items").select("item_id").eq("pending", true),
     client.from("purchase_lists")
-      .select("id, status, item_count, created_by, created_at, received_by, received_at, items:purchase_list_items(item_id, item_name, supplier_name, base_unit, quantity_ordered, quantity_received)")
+      .select("id, status, item_count, created_by, created_at, received_by, received_at, cancelled_by, cancelled_at, items:purchase_list_items(item_id, item_name, supplier_name, base_unit, quantity_ordered, quantity_received)")
       .order("created_at", {ascending: false})
       .limit(50),
   ]);
@@ -27,6 +27,36 @@ export async function loadShoppingWorkspace() {
     decisions: decisionsResult.data ?? [],
     pendingItemIds: (pendingItemsResult.data ?? []).map((entry) => entry.item_id),
     lists: listsResult.data ?? [],
+  };
+}
+
+export async function loadPurchaseDashboardSummary(referenceDate = new Date()) {
+  const client = requireClient();
+  const monthStart = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    1,
+  ).toISOString();
+  const [pendingResult, monthlyResult] = await Promise.all([
+    client.from("purchase_lists")
+      .select("item_count")
+      .eq("status", "pending"),
+    client.from("purchase_lists")
+      .select("status")
+      .gte("created_at", monthStart),
+  ]);
+  if (pendingResult.error) throw pendingResult.error;
+  if (monthlyResult.error) throw monthlyResult.error;
+
+  const pendingOrders = pendingResult.data ?? [];
+  const monthlyOrders = monthlyResult.data ?? [];
+  return {
+    pendingOrders: pendingOrders.length,
+    pendingItems: pendingOrders.reduce((total, order) => total + Number(order.item_count ?? 0), 0),
+    monthlyOrders: monthlyOrders.length,
+    monthlyPending: monthlyOrders.filter((order) => order.status === "pending").length,
+    monthlyCompleted: monthlyOrders.filter((order) => order.status === "received").length,
+    monthlyCancelled: monthlyOrders.filter((order) => order.status === "cancelled").length,
   };
 }
 
@@ -77,6 +107,15 @@ export async function receivePurchaseList(listId, items) {
   const result = await requireClient().rpc("receive_purchase_list", {
     target_list_id: listId,
     received_items: receivedItems,
+  });
+  if (result.error) throw result.error;
+  announceActivityNotification();
+  return result.data;
+}
+
+export async function cancelPurchaseList(listId) {
+  const result = await requireClient().rpc("cancel_purchase_list", {
+    target_list_id: listId,
   });
   if (result.error) throw result.error;
   announceActivityNotification();

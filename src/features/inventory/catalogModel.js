@@ -106,6 +106,14 @@ export function matchesCatalogItem(item, query, departmentId, includeInactive, s
     && (includeInactive || item.active);
 }
 
+export function isBeverageItem(item) {
+  const department = String(item?.department?.name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+  return department.includes("bebida") || department.includes("vino");
+}
+
 const STATUS_PRIORITY = { critical: 0, low: 1, neutral: 2, healthy: 3 };
 
 export function sortCatalogItems(items, sortBy = "attention") {

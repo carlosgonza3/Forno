@@ -4,9 +4,11 @@ import ShoppingPage from "./ShoppingPage";
 
 const loadShoppingWorkspace = vi.fn();
 const receivePurchaseList = vi.fn();
+const cancelPurchaseList = vi.fn();
 const saveShoppingDecision = vi.fn();
 
 vi.mock("../api/shoppingRepository", () => ({
+    cancelPurchaseList: (...args) => cancelPurchaseList(...args),
     createPurchaseList: vi.fn(),
     loadShoppingWorkspace: (...args) => loadShoppingWorkspace(...args),
     receivePurchaseList: (...args) => receivePurchaseList(...args),
@@ -24,6 +26,7 @@ const pendingList = {
     item_count: 2,
     created_at: "2026-07-28T12:00:00Z",
     received_at: null,
+    cancelled_at: null,
     items: [{
         item_id: "tomato",
         item_name: "Tomate",
@@ -47,6 +50,7 @@ describe("ShoppingPage purchase receipt review", () => {
     beforeEach(() => {
         loadShoppingWorkspace.mockReset();
         receivePurchaseList.mockReset();
+        cancelPurchaseList.mockReset();
         saveShoppingDecision.mockReset();
         loadShoppingWorkspace.mockResolvedValue({
             catalog: {items: [], departments: [], suppliers: []},
@@ -55,6 +59,7 @@ describe("ShoppingPage purchase receipt review", () => {
             lists: [pendingList],
         });
         receivePurchaseList.mockResolvedValue("transaction-id");
+        cancelPurchaseList.mockResolvedValue(2);
     });
 
     it("reviews ordered and received quantities before adding inventory", async () => {
@@ -79,6 +84,90 @@ describe("ShoppingPage purchase receipt review", () => {
             itemId: "flour",
             quantityReceived: 3,
         }]));
+    });
+
+    it("confirms cancellation of a pending order without receiving inventory", async () => {
+        render(<ShoppingPage/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /Lista #11111111/i}));
+        fireEvent.click(screen.getByRole("button", {name: "Cancelar orden"}));
+
+        const dialog = screen.getByRole("alertdialog", {name: "¿Cancelar esta orden?"});
+        expect(dialog).toHaveTextContent("El inventario no cambiará");
+        expect(cancelPurchaseList).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole("button", {name: "Confirmar cancelación"}));
+
+        await waitFor(() => expect(cancelPurchaseList).toHaveBeenCalledWith(pendingList.id));
+        expect(receivePurchaseList).not.toHaveBeenCalled();
+        expect(await screen.findByText("La orden pendiente fue cancelada. No se modificó el inventario."))
+            .toBeInTheDocument();
+    });
+
+    it("uses singular cancellation copy for an order with one ingredient", async () => {
+        loadShoppingWorkspace.mockResolvedValue({
+            catalog: {items: [], departments: [], suppliers: []},
+            decisions: [],
+            pendingItemIds: [],
+            lists: [{...pendingList, item_count: 1, items: [pendingList.items[0]]}],
+        });
+        render(<ShoppingPage/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /Lista #11111111/i}));
+        fireEvent.click(screen.getByRole("button", {name: "Cancelar orden"}));
+
+        expect(screen.getByRole("alertdialog", {name: "¿Cancelar esta orden?"}))
+            .toHaveTextContent("El ingrediente quedará disponible para agregarlo a otra lista");
+    });
+
+    it("shows cancelled orders separately in history", async () => {
+        loadShoppingWorkspace.mockResolvedValue({
+            catalog: {items: [], departments: [], suppliers: []},
+            decisions: [],
+            pendingItemIds: [],
+            lists: [{...pendingList, status: "cancelled", cancelled_at: "2026-09-11T12:00:00Z"}],
+        });
+        render(<ShoppingPage/>);
+
+        expect(await screen.findByText("Cancelada")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("tab", {name: /Canceladas/}));
+        fireEvent.click(screen.getByRole("button", {name: /Lista #11111111/i}));
+        expect(screen.getByText(/Cancelada.*sept/i)).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: "Cancelar orden"})).not.toBeInTheDocument();
+    });
+
+    it("paginates every order status view in groups of ten", async () => {
+        const lists = ["pending", "received", "cancelled"].flatMap((status, statusIndex) =>
+            Array.from({length: 11}, (_, index) => ({
+                ...pendingList,
+                id: `${statusIndex + 1}${String(index).padStart(7, "0")}-1111-1111-1111-111111111111`,
+                status,
+                received_at: status === "received" ? "2026-09-10T12:00:00Z" : null,
+                cancelled_at: status === "cancelled" ? "2026-09-11T12:00:00Z" : null,
+            })),
+        );
+        loadShoppingWorkspace.mockResolvedValue({
+            catalog: {items: [], departments: [], suppliers: []},
+            decisions: [],
+            pendingItemIds: [],
+            lists,
+        });
+        render(<ShoppingPage/>);
+
+        await screen.findByRole("tab", {name: /Todas/});
+        expect(document.querySelectorAll(".purchase-history-entry")).toHaveLength(10);
+        expect(screen.getByRole("navigation", {name: "Paginación de órdenes"}))
+            .toHaveTextContent("Página 1 de 4");
+
+        for (const tabName of ["Pendientes", "Completadas", "Canceladas"]) {
+            fireEvent.click(screen.getByRole("tab", {name: new RegExp(tabName)}));
+            expect(document.querySelectorAll(".purchase-history-entry")).toHaveLength(10);
+            expect(screen.getByRole("navigation", {name: "Paginación de órdenes"}))
+                .toHaveTextContent("Página 1 de 2");
+            fireEvent.click(screen.getByRole("button", {name: "Página siguiente"}));
+            expect(document.querySelectorAll(".purchase-history-entry")).toHaveLength(1);
+            expect(screen.getByRole("navigation", {name: "Paginación de órdenes"}))
+                .toHaveTextContent("Página 2 de 2");
+        }
     });
 
     it("expands and collapses every recommendation group from one control", async () => {

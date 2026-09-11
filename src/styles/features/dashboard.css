@@ -553,6 +553,30 @@ html[data-theme="dark"] .inventory-transaction-dialog .subtraction-pill {
     border: 0
 }
 
+.dashboard-order-section {
+    margin-bottom: 24px
+}
+
+.dashboard-order-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 11px
+}
+
+.dashboard-order-heading h2 {
+    margin: 4px 0 0;
+    font: 750 16px Manrope;
+    letter-spacing: -.025em
+}
+
+.dashboard-order-insights {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px
+}
+
 .inventory-metric {
     position: relative;
     min-width: 0;
@@ -760,6 +784,10 @@ html[data-theme="dark"] .inventory-activity-card {
 }
 
 @media (max-width: 620px) {
+    .dashboard-order-insights {
+        grid-template-columns: 1fr
+    }
+
     .inventory-metric {
         min-height: 112px;
         padding: 15px 14px

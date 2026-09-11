@@ -52,9 +52,11 @@ function activityPresentation(notification) {
         icon: ShoppingBasket, tone: "purchase"};
     case "purchase_status_changed":
       return {category: "COMPRAS", title: notification.metadata?.status === "received"
-        ? "Orden completada" : "Estado de orden actualizado",
+        ? "Orden completada" : notification.metadata?.status === "cancelled"
+          ? "Orden cancelada" : "Estado de orden actualizado",
       detail: `${countLabel(notification.item_count, "producto", "productos")} · ${actor}`,
-      icon: CheckCircle2, tone: "complete"};
+      icon: notification.metadata?.status === "cancelled" ? ShoppingBasket : CheckCircle2,
+      tone: notification.metadata?.status === "cancelled" ? "purchase" : "complete"};
     default:
       return {category: "ACTIVIDAD", title: "Actividad registrada", detail: actor,
         icon: Bell, tone: "user"};

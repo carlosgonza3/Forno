@@ -59,6 +59,7 @@ import {
 } from "../shoppingModel";
 import {IngredientIcon} from "../../inventory/ingredientIcons";
 import {
+    cancelPurchaseList,
     createPurchaseList,
     loadShoppingWorkspace,
     receivePurchaseList,
@@ -94,6 +95,7 @@ export default function ShoppingPage() {
     const [review, setReview] = useState(null);
     const [savingList, setSavingList] = useState(false);
     const [receivingList, setReceivingList] = useState(null);
+    const [cancellingList, setCancellingList] = useState(null);
     const [expandedLists, setExpandedLists] = useState(() => new Set());
 
     async function refresh() {
@@ -291,6 +293,22 @@ export default function ShoppingPage() {
         }
     }
 
+    async function confirmCancellation() {
+        if (!cancellingList) return;
+        setSavingList(true);
+        setMessage("");
+        try {
+            await cancelPurchaseList(cancellingList.id);
+            setCancellingList(null);
+            await refresh();
+            setSuccess("La orden pendiente fue cancelada. No se modificó el inventario.");
+        } catch (error) {
+            setMessage(errorMessage(error));
+        } finally {
+            setSavingList(false);
+        }
+    }
+
     function toggleSavedList(listId) {
         setExpandedLists((current) => {
             const next = new Set(current);
@@ -456,11 +474,13 @@ export default function ShoppingPage() {
         </aside>
     </div>
     <PurchaseListHistory lists={workspace.lists} expandedLists={expandedLists}
-        onToggle={toggleSavedList} onReceive={setReceivingList}/>
+        onToggle={toggleSavedList} onReceive={setReceivingList} onCancel={setCancellingList}/>
     {review && <PurchaseReviewDialog review={review} saving={savingList}
         onClose={() => !savingList && setReview(null)} onSave={saveReviewedList}/>}
     {receivingList && <ReceivePurchaseDialog list={receivingList} saving={savingList}
         onClose={() => !savingList && setReceivingList(null)} onConfirm={confirmReceipt}/>}
+    {cancellingList && <CancelPurchaseDialog list={cancellingList} saving={savingList}
+        onClose={() => !savingList && setCancellingList(null)} onConfirm={confirmCancellation}/>}
     </>;
 }
 
@@ -593,33 +613,48 @@ function PurchaseReviewDialog({review, saving, onClose, onSave}) {
     </Sheet>;
 }
 
-function PurchaseListHistory({lists, expandedLists, onToggle, onReceive}) {
+function PurchaseListHistory({lists, expandedLists, onToggle, onReceive, onCancel}) {
+    const pageSize = 10;
     const [view, setView] = useState("all");
+    const [page, setPage] = useState(0);
     const [month, setMonth] = useState(() => {
         const today = new Date();
         return new Date(today.getFullYear(), today.getMonth(), 1);
     });
     const [selectedDate, setSelectedDate] = useState(() => dateKey(new Date()));
     const pendingCount = lists.filter((list) => list.status === "pending").length;
-    const completedCount = lists.length - pendingCount;
+    const completedCount = lists.filter((list) => list.status === "received").length;
+    const cancelledCount = lists.filter((list) => list.status === "cancelled").length;
     const filteredLists = view === "pending"
         ? lists.filter((list) => list.status === "pending")
         : view === "completed"
-            ? lists.filter((list) => list.status !== "pending")
-            : lists;
+            ? lists.filter((list) => list.status === "received")
+            : view === "cancelled"
+                ? lists.filter((list) => list.status === "cancelled")
+                : lists;
+    const pageCount = Math.max(1, Math.ceil(filteredLists.length / pageSize));
+    const visibleLists = filteredLists.slice(page * pageSize, (page + 1) * pageSize);
+
+    useEffect(() => {
+        setPage((currentPage) => Math.min(currentPage, pageCount - 1));
+    }, [pageCount]);
 
     return <section className="panel purchase-history">
-        <header className="purchase-history-heading"><div><span className="eyebrow">HISTORIAL</span>
-            <h2>Listas de compras guardadas</h2><p>Pendientes y recibidas por el equipo.</p></div>
+        <header className="purchase-history-heading"><div>
+            <h2>Historial</h2></div>
             <strong>{lists.length}</strong></header>
         <div className="purchase-history-tabs" role="tablist" aria-label="Vistas de listas guardadas">
             {[
                 ["all", "Todas", lists.length],
                 ["pending", "Pendientes", pendingCount],
                 ["completed", "Completadas", completedCount],
+                ["cancelled", "Canceladas", cancelledCount],
                 ["calendar", "Calendario", null],
             ].map(([key, label, count]) => <button key={key} role="tab" aria-selected={view === key}
-                className={view === key ? "active" : ""} onClick={() => setView(key)}>
+                className={view === key ? "active" : ""} onClick={() => {
+                    setView(key);
+                    setPage(0);
+                }}>
                 {key === "calendar" && <CalendarDays size={14}/>}
                 {label}{count !== null && <span>{count}</span>}
             </button>)}
@@ -627,10 +662,22 @@ function PurchaseListHistory({lists, expandedLists, onToggle, onReceive}) {
         {lists.length ? view === "calendar"
             ? <PurchaseHistoryCalendar lists={lists} month={month} onMonthChange={setMonth}
                 selectedDate={selectedDate} onDateChange={setSelectedDate}
-                expandedLists={expandedLists} onToggle={onToggle} onReceive={onReceive}/>
+                expandedLists={expandedLists} onToggle={onToggle} onReceive={onReceive} onCancel={onCancel}/>
             : filteredLists.length
-                ? <PurchaseHistoryList lists={filteredLists} expandedLists={expandedLists}
-                    onToggle={onToggle} onReceive={onReceive}/>
+                ? <><PurchaseHistoryList lists={visibleLists} expandedLists={expandedLists}
+                    onToggle={onToggle} onReceive={onReceive} onCancel={onCancel}/>
+                    {filteredLists.length > pageSize && <nav className="purchase-history-pagination"
+                        aria-label="Paginación de órdenes">
+                        <button type="button" aria-label="Página anterior" disabled={page === 0}
+                            onClick={() => setPage((currentPage) => currentPage - 1)}>
+                            <ChevronLeft size={15}/>
+                        </button>
+                        <span>Página <strong>{page + 1}</strong> de {pageCount}</span>
+                        <button type="button" aria-label="Página siguiente" disabled={page === pageCount - 1}
+                            onClick={() => setPage((currentPage) => currentPage + 1)}>
+                            <ChevronRight size={15}/>
+                        </button>
+                    </nav>}</>
                 : <div className="purchase-history-empty"><FileText size={23}/>
                     <strong>No hay listas en esta vista</strong><span>Prueba otra pestaña.</span></div>
             : <div className="purchase-history-empty"><FileText size={23}/>
@@ -643,14 +690,15 @@ function dateKey(value) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function PurchaseHistoryList({lists, expandedLists, onToggle, onReceive, compact = false}) {
+function PurchaseHistoryList({lists, expandedLists, onToggle, onReceive, onCancel, compact = false}) {
     return <div className={`purchase-history-list ${compact ? "is-compact" : ""}`}>
         {lists.map((list) => <PurchaseHistoryEntry key={list.id} list={list}
-            expanded={expandedLists.has(list.id)} onToggle={onToggle} onReceive={onReceive}/>)}
+            expanded={expandedLists.has(list.id)} onToggle={onToggle} onReceive={onReceive}
+            onCancel={onCancel}/>)}
     </div>;
 }
 
-function PurchaseHistoryEntry({list, expanded, onToggle, onReceive}) {
+function PurchaseHistoryEntry({list, expanded, onToggle, onReceive, onCancel}) {
     const exportedItems = savedListExportItems(list);
     const providers = new Set(list.items.map((item) => item.supplier_name)).size;
     return <article className="purchase-history-entry">
@@ -663,7 +711,7 @@ function PurchaseHistoryEntry({list, expanded, onToggle, onReceive}) {
                     timeStyle: "short",
                 })} · {providers} {providers === 1 ? "proveedor" : "proveedores"}</small></span>
             <span className={`purchase-status ${list.status}`}>
-                {list.status === "pending" ? "Pendiente" : "Completada"}
+                {list.status === "pending" ? "Pendiente" : list.status === "received" ? "Completada" : "Cancelada"}
             </span>
             <span>{list.item_count} {list.item_count === 1 ? "ingrediente" : "ingredientes"}</span>
             {expanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
@@ -683,10 +731,19 @@ function PurchaseHistoryEntry({list, expanded, onToggle, onReceive}) {
                         createdAt: new Date(list.created_at),
                         logoUrl: FornoFoxLogo,
                     })}><FileText size={15}/>PDF</button></div>
-                {list.status === "pending" ? <button className="primary-btn" onClick={() => onReceive(list)}>
-                    <PackageCheck size={16}/>Marcar recibida y agregar al inventario
-                </button> : <span className="purchase-received-note"><Check size={15}/>
+                {list.status === "pending" ? <div className="purchase-pending-actions">
+                    <button className="secondary-btn purchase-cancel-button" onClick={() => onCancel(list)}>
+                        <X size={15}/>Cancelar orden
+                    </button>
+                    <button className="primary-btn" onClick={() => onReceive(list)}>
+                        <PackageCheck size={16}/>Marcar recibida y agregar al inventario
+                    </button>
+                </div> : list.status === "received" ? <span className="purchase-received-note"><Check size={15}/>
                     Completada {new Date(list.received_at).toLocaleString("es-SV", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                    })}</span> : <span className="purchase-cancelled-note"><X size={15}/>
+                    Cancelada {new Date(list.cancelled_at).toLocaleString("es-SV", {
                         dateStyle: "medium",
                         timeStyle: "short",
                     })}</span>}
@@ -704,6 +761,7 @@ function PurchaseHistoryCalendar({
     expandedLists,
     onToggle,
     onReceive,
+    onCancel,
 }) {
     const year = month.getFullYear();
     const monthIndex = month.getMonth();
@@ -748,10 +806,31 @@ function PurchaseHistoryCalendar({
             })}</strong></header>
             {selectedLists.length
                 ? <PurchaseHistoryList lists={selectedLists} expandedLists={expandedLists}
-                    onToggle={onToggle} onReceive={onReceive} compact/>
+                    onToggle={onToggle} onReceive={onReceive} onCancel={onCancel} compact/>
                 : <div className="purchase-calendar-empty"><CalendarDays size={21}/>
                     <span>No hay listas guardadas este día.</span></div>}
         </aside>
+    </div>;
+}
+
+function CancelPurchaseDialog({list, saving, onClose, onConfirm}) {
+    return <div className="modal-backdrop cancel-purchase-backdrop" onMouseDown={onClose}>
+        <section className="modal cancel-purchase-dialog" role="alertdialog" aria-modal="true"
+            aria-labelledby="cancel-purchase-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button type="button" className="cancel-purchase-close" aria-label="Cerrar"
+                onClick={onClose} disabled={saving}><X size={18}/></button>
+            <h2 id="cancel-purchase-title">¿Cancelar esta orden?</h2>
+            <p>Esta orden se guardará como cancelada en el historial. {list.item_count === 1
+                ? <>El ingrediente quedará disponible para agregarlo a otra lista.</>
+                : <>Los <strong>{list.item_count}</strong> ingredientes quedarán disponibles para agregarlos a otra lista.</>}
+                {" "}El inventario no cambiará.</p>
+            <div className="cancel-purchase-actions">
+                <button type="button" className="secondary-btn" onClick={onClose} disabled={saving}>Volver</button>
+                <button type="button" className="danger-btn" onClick={onConfirm} disabled={saving}>
+                    {saving ? "Cancelando…" : "Confirmar cancelación"}
+                </button>
+            </div>
+        </section>
     </div>;
 }
 
@@ -785,13 +864,12 @@ function ReceivePurchaseDialog({list, saving, onClose, onConfirm}) {
         <section className="modal receive-purchase-dialog" role="dialog" aria-modal="true"
             aria-label="Revisar recepción" onMouseDown={(event) => event.stopPropagation()}>
             <header className="receive-purchase-heading">
-                <div className="receive-purchase-icon"><PackageCheck size={24}/></div>
-                <div><span className="eyebrow">REVISAR RECEPCIÓN</span>
-                    <h2>Compara lo ordenado con lo recibido</h2>
+                <div>
+                    <h2>Confirmar Orden Recibida</h2>
                 </div>
             </header>
             <div className="receive-purchase-summary">
-                <span><strong>{list.item_count}</strong> {list.item_count === 1 ? "ingrediente ordenado" : "ingredientes ordenados"}</span>
+                <span><strong>{list.item_count}</strong> {list.item_count === 1 ? "  ingrediente ordenado" : "  ingredientes ordenados"}</span>
                 <span className={missingCount ? "has-missing" : "is-complete"}>
                     {missingCount ? `${missingCount} ${missingCount === 1 ? "con diferencia" : "con diferencias"}` : "Entrega completa"}
                 </span>
@@ -825,7 +903,7 @@ function ReceivePurchaseDialog({list, saving, onClose, onConfirm}) {
                 </tr>;
             })}</tbody></table></div>
             <footer className="receive-purchase-actions">
-                <p>Solo las cantidades recibidas se agregarán al inventario. Esta recepción no puede repetirse.</p>
+                <p>Solo las cantidades recibidas se agregarán al inventario.</p>
                 <div>
                 <button className="secondary-btn" onClick={onClose} disabled={saving}>Cancelar</button>
                 <button className="primary-btn" onClick={() => onConfirm(receivedItems)}

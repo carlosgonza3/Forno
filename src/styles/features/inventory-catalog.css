@@ -385,7 +385,7 @@
     width: 76px
 }
 
-.catalog-table-product > div:last-child,
+.catalog-table-product > .catalog-product-copy,
 .catalog-stock-brief {
     min-width: 0;
     display: flex;
@@ -447,6 +447,36 @@
 
 .catalog-row-actions {
     justify-content: flex-end
+}
+
+.catalog-last-note {
+    display: block;
+    max-width: 360px;
+    color: var(--muted);
+    line-height: 1.45;
+    white-space: normal
+}
+
+.catalog-beverages-data-table .ui-table {
+    min-width: 700px
+}
+
+.catalog-beverages-data-table .ui-table-head:first-child {
+    width: 34%
+}
+
+.catalog-beverages-data-table .ui-table-head:nth-child(2) {
+    width: 22%
+}
+
+.catalog-beverages-data-table .ui-table-head:last-child,
+.catalog-beverages-data-table .ui-table-cell:last-child {
+    width: auto
+}
+
+.catalog-beverages-data-table.has-actions .ui-table-head:last-child,
+.catalog-beverages-data-table.has-actions .ui-table-cell:last-child {
+    width: 76px
 }
 
 

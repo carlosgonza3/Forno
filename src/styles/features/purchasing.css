@@ -1121,6 +1121,52 @@ html[data-theme="dark"] .shopping-supplier-summary li {
     margin-top: 14px
 }
 
+.purchase-history-pagination {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper)
+}
+
+.purchase-history-pagination button {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    color: var(--muted);
+    background: var(--paper)
+}
+
+.purchase-history-pagination button:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--accent-soft)
+}
+
+.purchase-history-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: .4
+}
+
+.purchase-history-pagination span {
+    min-width: 90px;
+    color: var(--muted);
+    font-size: 9px;
+    text-align: center
+}
+
+.purchase-history-pagination strong {
+    color: var(--ink)
+}
+
 .purchase-history-entry {
     overflow: hidden;
     border: 1px solid var(--line);
@@ -1189,6 +1235,11 @@ html[data-theme="dark"] .shopping-supplier-summary li {
     background: #e7f0e8
 }
 
+.purchase-status.cancelled {
+    color: #9d493d;
+    background: #f5e3df
+}
+
 .purchase-history-detail {
     padding: 0 13px 13px;
     border-top: 1px solid var(--line);
@@ -1245,6 +1296,60 @@ html[data-theme="dark"] .shopping-supplier-summary li {
     color: #4d7958;
     font-size: 10px;
     font-weight: 700
+}
+
+.purchase-cancelled-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #9d493d;
+    font-size: 10px;
+    font-weight: 700
+}
+
+.purchase-cancel-button {
+    color: #9d493d
+}
+
+.modal.cancel-purchase-dialog {
+    position: relative;
+    width: min(470px, calc(100vw - 32px));
+    padding: 28px;
+    text-align: left
+}
+
+.cancel-purchase-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--muted);
+    background: var(--paper)
+}
+
+.cancel-purchase-dialog h2 {
+    margin: 7px 0 8px;
+    color: var(--ink);
+    font: 800 22px Manrope
+}
+
+.cancel-purchase-dialog > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.65
+}
+
+.cancel-purchase-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+    margin-top: 24px
 }
 
 .purchase-calendar-layout {
@@ -1711,8 +1816,18 @@ html[data-theme="dark"] .receive-purchase-icon {
     background: #26372b
 }
 
+html[data-theme="dark"] .purchase-status.cancelled {
+    color: #dc9588;
+    background: #422823
+}
+
 html[data-theme="dark"] .purchase-received-note {
     color: #8fba98
+}
+
+html[data-theme="dark"] .purchase-cancelled-note,
+html[data-theme="dark"] .purchase-cancel-button {
+    color: #dc9588
 }
 
 html[data-theme="dark"] .receive-purchase-summary {

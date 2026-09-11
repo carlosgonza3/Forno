@@ -71,6 +71,7 @@ import {
 } from "../api/catalogRepository";
 import {
     groupCatalogItems,
+    isBeverageItem,
     matchesCatalogItem,
     quantityUnitLabel,
     sortCatalogItems,
@@ -220,10 +221,17 @@ export default function CatalogPage({initialStockFilter = "all"}) {
         };
     }, [tableExpanded]);
 
-    const catalogItems = tab === "processed" ? (catalog.processedItems ?? []) : catalog.items;
+    const ingredientCatalogItems = useMemo(() => catalog.items.filter((item) => !isBeverageItem(item)), [catalog.items]);
+    const beverageCatalogItems = useMemo(() => catalog.items.filter(isBeverageItem), [catalog.items]);
+    const defaultBeverageDepartmentId = catalog.departments.find((department) =>
+        department.name.toLocaleLowerCase("es").includes("bebida"))?.id
+        ?? catalog.departments.find((department) => isBeverageItem({department}))?.id
+        ?? "";
+    const catalogItems = tab === "processed" ? (catalog.processedItems ?? [])
+        : tab === "beverages" ? beverageCatalogItems : ingredientCatalogItems;
     const scopedItems = useMemo(
         () => catalogItems.filter((item) => matchesCatalogItem(item, query,
-            tab === "processed" ? "" : departmentId, includeInactive, tab === "processed" ? "" : supplierId)),
+            tab === "items" ? departmentId : "", includeInactive, tab === "items" ? supplierId : "")),
         [catalogItems, departmentId, includeInactive, query, supplierId, tab],
     );
     const statusCounts = useMemo(() => scopedItems.reduce((counts, item) => {
@@ -247,10 +255,24 @@ export default function CatalogPage({initialStockFilter = "all"}) {
                 .some((value) => String(value ?? "").toLocaleLowerCase("es").includes(normalized)))
         ));
     }, [catalog.suppliers, includeInactive, query]);
-    const ingredientOverview = stockOverview(catalog.items);
+    const ingredientOverview = stockOverview(ingredientCatalogItems);
+    const beverageOverview = stockOverview(beverageCatalogItems);
     const processedOverview = stockOverview(catalog.processedItems ?? []);
     const activeSuppliers = catalog.suppliers.filter((supplier) => supplier.active);
-    const quickInfo = tab === "processed" ? {
+    const quickInfo = tab === "beverages" ? {
+        label: "bebidas",
+        metrics: [
+            {label: "Bebidas activas", value: beverageOverview.active,
+                detail: `${beverageOverview.inactive} inactivas`, icon: Boxes, tone: "wine"},
+            {label: "Con existencia", value: beverageOverview.withExistence,
+                detail: "Disponibles actualmente", icon: PackageCheck, tone: "green"},
+            {label: "Agotadas", value: beverageOverview.withoutExistence,
+                detail: "Necesitan reposición", icon: CircleOff, tone: "clay"},
+            {label: "Disponibilidad", value: `${beverageOverview.availability}%`,
+                detail: `${beverageOverview.withExistence} de ${beverageOverview.active} disponibles`,
+                icon: Gauge, tone: "blue", progress: beverageOverview.availability},
+        ],
+    } : tab === "processed" ? {
         label: "preparados",
         metrics: [
             {label: "Preparados activos", value: processedOverview.active,
@@ -305,7 +327,7 @@ export default function CatalogPage({initialStockFilter = "all"}) {
         setTab(nextTab);
         setQuery("");
         setTableExpanded(false);
-        if (nextTab === "processed") {
+        if (nextTab === "processed" || nextTab === "beverages") {
             resetItemFilters();
             setGroupBy("none");
             setSortBy("name");
@@ -409,10 +431,11 @@ export default function CatalogPage({initialStockFilter = "all"}) {
             <TabsList variant="line" className="catalog-tabs" aria-label="Secciones de inventario">
                 <TabsTrigger value="items">Ingredientes</TabsTrigger>
                 <TabsTrigger value="processed">Preparados</TabsTrigger>
+                <TabsTrigger value="beverages">Bebidas</TabsTrigger>
                 <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
             </TabsList>
             <div className="catalog-heading-actions">
-                {(tab === "items" || tab === "processed") && <button className="primary-btn existence-entry-button"
+                {(tab === "items" || tab === "processed" || tab === "beverages") && <button className="primary-btn existence-entry-button"
                                             onClick={() => tab === "processed" ? setProcessedExistenceOpen(true) : setExistenceOpen(true)} disabled={loading}>
                     <RefreshCw size={17}/><span>Actualizar existencias</span>
                 </button>}
@@ -427,10 +450,11 @@ export default function CatalogPage({initialStockFilter = "all"}) {
                 {isAdmin && <button className="primary-btn catalog-create-button" onClick={() => {
                     if (tab === "processed") setProcessedDraft({...emptyItem});
                     else if (tab === "suppliers") setSupplierDraft({...emptySupplier});
-                    else setItemDraft({...emptyItem});
+                    else setItemDraft({...emptyItem, departmentId: tab === "beverages"
+                        ? defaultBeverageDepartmentId : ""});
                 }}>
                     <Plus size={17}/> {tab === "processed" ? "Ingrediente procesado"
-                        : tab === "suppliers" ? "Proveedor" : "Ingrediente"}
+                        : tab === "suppliers" ? "Proveedor" : tab === "beverages" ? "Bebida" : "Ingrediente"}
                 </button>}
                 <div className="catalog-panel-actions">
                     <button type="button" className="catalog-expand-button"
@@ -446,8 +470,8 @@ export default function CatalogPage({initialStockFilter = "all"}) {
             <div className="catalog-data-toolbar">
                 <InputGroup className="search-box"><InputGroupInput value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    aria-label={`Buscar ${tab === "suppliers" ? "proveedor" : "ingrediente"}`}
-                    placeholder={`Buscar ${tab === "suppliers" ? "proveedor" : "ingrediente"}…`}/>
+                    aria-label={`Buscar ${tab === "suppliers" ? "proveedor" : tab === "beverages" ? "bebida" : "ingrediente"}`}
+                    placeholder={`Buscar ${tab === "suppliers" ? "proveedor" : tab === "beverages" ? "bebida" : "ingrediente"}…`}/>
                     <InputGroupAddon><Search size={18}/></InputGroupAddon>
                 </InputGroup>
                 {tab === "items" ? <InventoryMenubar
@@ -489,14 +513,15 @@ export default function CatalogPage({initialStockFilter = "all"}) {
             </div>}
             {loading ? <div className="catalog-empty">
                 <div className="state-spinner"/>
-                <p>Cargando catálogo seguro…</p></div> : (tab === "items" || tab === "processed") ? (
+                <p>Cargando catálogo seguro…</p></div> : (tab === "items" || tab === "processed" || tab === "beverages") ? (
                 <div className="inventory-table-stage"><ItemsExplorer
                     groups={itemGroups} groupBy={groupBy} collapsedGroups={collapsedGroups} onToggleGroup={toggleGroup}
                     isAdmin={isAdmin} onEdit={tab === "processed" ? editProcessedItem : editItem}
                     onToggle={tab === "processed" ? toggleProcessedItem : toggleItem}
                     iconFieldAvailable={tab !== "processed" && catalog.iconFieldAvailable}
                     emojiFieldAvailable={catalog.emojiFieldAvailable}
-                    savingIconIds={savingIconIds} onIconChange={updateItemIcon}/></div>
+                    savingIconIds={savingIconIds} onIconChange={updateItemIcon}
+                    tableVariant={tab === "beverages" ? "beverages" : "default"}/></div>
             ) : (
                 <SuppliersTable suppliers={suppliers} isAdmin={isAdmin} onEdit={(supplier) => setSupplierDraft({
                     ...supplier,
@@ -534,7 +559,15 @@ export default function CatalogPage({initialStockFilter = "all"}) {
                                    onClose={() => setExportOpen(false)}/>
         )}
         {existenceOpen && (
-            <ExistenceEntryDialog catalog={catalog} onClose={() => setExistenceOpen(false)}
+            <ExistenceEntryDialog catalog={{...catalog, items: tab === "beverages"
+                ? beverageCatalogItems : ingredientCatalogItems,
+                departments: tab === "beverages" ? [] : catalog.departments}}
+                                  itemLabel={tab === "beverages" ? "bebida" : "ingrediente"}
+                                  groupOptions={tab === "beverages"
+                                      ? [{value: "none", label: "Sin agrupar"}] : undefined}
+                                  showDepartmentFilter={tab !== "beverages"}
+                                  showGrouping={tab !== "beverages"}
+                                  onClose={() => setExistenceOpen(false)}
                                   onSaved={async () => {
                                       setExistenceOpen(false);
                                       await refresh();
@@ -543,6 +576,7 @@ export default function CatalogPage({initialStockFilter = "all"}) {
         {processedExistenceOpen && (
             <ExistenceEntryDialog catalog={{...catalog, items: catalog.processedItems ?? [], departments: []}}
                 itemLabel="ingrediente procesado" groupOptions={[{value: "none", label: "Sin agrupar"}]}
+                showDepartmentFilter={false} showGrouping={false}
                 saveExistences={setProcessedInventoryExistences}
                 onClose={() => setProcessedExistenceOpen(false)} onSaved={async () => {
                     setProcessedExistenceOpen(false);
@@ -560,6 +594,8 @@ function ExistenceEntryDialog({
     saveExistences = setInventoryExistences,
     groupOptions = [{value: "department", label: "Por departamento"},
         {value: "supplier", label: "Por proveedor"}, {value: "none", label: "Sin agrupar"}],
+    showDepartmentFilter = true,
+    showGrouping = true,
 }) {
     const [stage, setStage] = useState("entry");
     const [query, setQuery] = useState("");
@@ -650,15 +686,15 @@ function ExistenceEntryDialog({
                         placeholder="Buscar ingrediente…"/>
                         <InputGroupAddon><Search size={18}/></InputGroupAddon>
                     </InputGroup>
-                    {catalog.departments.length > 0 && <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
+                    {showDepartmentFilter && catalog.departments.length > 0 && <ViewSelect icon={Boxes} label="Departamento" value={departmentId} onChange={setDepartmentId}
                         options={[{value: "", label: "Todos"}, ...catalog.departments.map((department) => ({
                             value: department.id, label: department.name
                         }))]}
                     />}
-                    <ViewSelect icon={Layers3} label="Agrupación" value={groupBy} onChange={(value) => {
+                    {showGrouping && <ViewSelect icon={Layers3} label="Agrupación" value={groupBy} onChange={(value) => {
                         setGroupBy(value);
                         setCollapsedGroups(new Set());
-                    }} options={groupOptions}/>
+                    }} options={groupOptions}/>}
                 </div>
                 <div className="existence-table-stage">
                     {!visibleItems.length ? <div className="catalog-empty"><Boxes size={28}/><h3>No hay {itemLabel}s</h3>
@@ -927,19 +963,21 @@ function ItemsExplorer({
     emojiFieldAvailable,
     savingIconIds,
     onIconChange,
+    tableVariant = "default",
 }) {
     const itemCount = groups.reduce((total, group) => total + group.items.length, 0);
-    if (!itemCount) return <div className="catalog-empty"><Boxes size={28}/><h3>No hay ingredientes para mostrar</h3>
+    if (!itemCount) return <div className="catalog-empty"><Boxes size={28}/><h3>
+        {tableVariant === "beverages" ? "No hay bebidas para mostrar" : "No hay ingredientes para mostrar"}</h3>
         <p>Ajusta la búsqueda o los filtros.</p></div>;
     if (groupBy === "none") return <ItemsTable items={groups[0].items} isAdmin={isAdmin} onEdit={onEdit}
         onToggle={onToggle} iconFieldAvailable={iconFieldAvailable} emojiFieldAvailable={emojiFieldAvailable}
-        savingIconIds={savingIconIds} onIconChange={onIconChange}/>;
+        savingIconIds={savingIconIds} onIconChange={onIconChange} tableVariant={tableVariant}/>;
     return <div className="inventory-groups">{groups.map((group) => (
         <InventoryGroup key={group.key} group={group} collapsed={collapsedGroups.has(group.key)}
                         onToggle={() => onToggleGroup(group.key)} isAdmin={isAdmin} onEdit={onEdit}
                         onItemToggle={onToggle} iconFieldAvailable={iconFieldAvailable}
                         emojiFieldAvailable={emojiFieldAvailable} savingIconIds={savingIconIds}
-                        onIconChange={onIconChange}/>
+                        onIconChange={onIconChange} tableVariant={tableVariant}/>
     ))}</div>;
 }
 
@@ -954,6 +992,7 @@ function InventoryGroup({
     emojiFieldAvailable,
     savingIconIds,
     onIconChange,
+    tableVariant,
 }) {
     const criticalCount = group.items.filter((item) => stockStatus(item).key === "critical").length;
     const bodyId = `inventory-group-${group.key}`;
@@ -970,7 +1009,8 @@ function InventoryGroup({
             <div className="inventory-subgroup-content">
                 <ItemsTable items={group.items} isAdmin={isAdmin} onEdit={onEdit} onToggle={onItemToggle}
                     iconFieldAvailable={iconFieldAvailable} emojiFieldAvailable={emojiFieldAvailable}
-                    savingIconIds={savingIconIds} onIconChange={onIconChange} grouped/>
+                    savingIconIds={savingIconIds} onIconChange={onIconChange} grouped
+                    tableVariant={tableVariant}/>
             </div>
         </div>}
     </section>;
@@ -986,61 +1026,61 @@ function ItemsTable({
     savingIconIds,
     onIconChange,
     grouped = false,
+    tableVariant = "default",
 }) {
     if (!items.length) return <div className="catalog-empty"><Boxes size={28}/><h3>No hay ingredientes para mostrar</h3>
         <p>Ajusta la búsqueda o los filtros.</p></div>;
-    const columns = [
-        {
-            id: "ingredient",
-            header: "Ingrediente",
-            cell: ({row}) => {
-                const item = row.original;
-                const context = [item.department?.name, item.supplier?.name].filter(Boolean).join(" · ");
-                return <div className="product-cell catalog-table-product">
-                    {isAdmin && iconFieldAvailable ? <IngredientIconPicker
-                        value={item.icon_key ?? ""} emojiValue={item.icon_emoji ?? ""}
-                        disabled={false} emojiDisabled={!emojiFieldAvailable}
-                        busy={savingIconIds.has(item.id)}
-                        ariaLabel={`Cambiar ícono de ${item.name}`}
-                        triggerClassName="catalog-table-icon-trigger"
-                        onChange={(nextIcon) => onIconChange(item, nextIcon)}/>
-                        : <div className="food-icon"><IngredientIcon iconKey={item.icon_key}
-                            iconEmoji={item.icon_emoji} size={17}/></div>}
-                    <div><strong>{item.name}</strong>
-                        <span>{context || "Sin asignar"}{!item.active ? " · Inactivo" : ""}</span>
-                    </div>
-                </div>;
-            },
+    const isBeverageTable = tableVariant === "beverages";
+    const nameColumn = {
+        id: "ingredient",
+        header: isBeverageTable ? "Nombre" : "Ingrediente",
+        cell: ({row}) => {
+            const item = row.original;
+            const context = [item.department?.name, item.supplier?.name].filter(Boolean).join(" · ");
+            return <div className="product-cell catalog-table-product">
+                {isAdmin && iconFieldAvailable ? <IngredientIconPicker
+                    value={item.icon_key ?? ""} emojiValue={item.icon_emoji ?? ""}
+                    disabled={false} emojiDisabled={!emojiFieldAvailable}
+                    busy={savingIconIds.has(item.id)}
+                    ariaLabel={`Cambiar ícono de ${item.name}`}
+                    triggerClassName="catalog-table-icon-trigger"
+                    onChange={(nextIcon) => onIconChange(item, nextIcon)}/>
+                    : <div className="food-icon"><IngredientIcon iconKey={item.icon_key}
+                        iconEmoji={item.icon_emoji} size={17}/></div>}
+                <div className="catalog-product-copy"><strong>{item.name}</strong>
+                    {!isBeverageTable && <span>{context || "Sin asignar"}{!item.active ? " · Inactivo" : ""}</span>}
+                </div>
+            </div>;
         },
-        {
-            id: "stock",
-            header: "Inventario",
-            cell: ({row}) => {
-                const item = row.original;
-                return <div className="catalog-stock-brief">
-                    <strong>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</strong>
-                    <span>Ideal {Number(item.par_level).toLocaleString("es-SV")}</span>
-                </div>;
-            },
+    };
+    const stockColumn = {
+        id: "stock",
+        header: "Inventario",
+        cell: ({row}) => {
+            const item = row.original;
+            return <div className="catalog-stock-brief">
+                <strong>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</strong>
+                <span>Ideal {Number(item.par_level).toLocaleString("es-SV")}</span>
+            </div>;
         },
-        {
-            id: "status",
-            header: "Estado",
-            cell: ({row}) => {
-                const status = stockStatus(row.original);
-                const variant = status.key === "critical" || status.key === "low" ? status.key : "outline";
-                return <Badge variant={variant} className={`catalog-status-badge is-${status.key}`}>
-                    <span aria-hidden="true"/>{status.label}
-                </Badge>;
-            },
+    };
+    const lastNoteColumn = {
+        id: "last-note",
+        header: "Última nota",
+        cell: ({row}) => <span className="catalog-last-note">{row.original.last_note || "Sin nota"}</span>,
+    };
+    const statusColumn = {
+        id: "status",
+        header: "Estado",
+        cell: ({row}) => {
+            const status = stockStatus(row.original);
+            const variant = status.key === "critical" || status.key === "low" ? status.key : "outline";
+            return <Badge variant={variant} className={`catalog-status-badge is-${status.key}`}>
+                <span aria-hidden="true"/>{status.label}
+            </Badge>;
         },
-        {
-            id: "cost",
-            header: "Costo",
-            cell: ({row}) => money.format(Number(row.original.unit_cost)),
-        },
-    ];
-    if (isAdmin) columns.push({
+    };
+    const actionColumn = {
         id: "actions",
         header: () => <span className="sr-only">Acciones</span>,
         cell: ({row}) => {
@@ -1055,7 +1095,26 @@ function ItemsTable({
                         <ArchiveRestore size={15}/>}</button>
             </div>;
         },
-    });
+    };
+    if (isBeverageTable) {
+        const beverageColumns = [nameColumn, stockColumn, lastNoteColumn, statusColumn];
+        if (isAdmin) beverageColumns.push(actionColumn);
+        return <DataTable data={items} columns={beverageColumns}
+            className={`catalog-items-data-table catalog-beverages-data-table ${isAdmin ? "has-actions" : ""}`}/>;
+    }
+
+    const columns = [
+        nameColumn,
+        stockColumn,
+        lastNoteColumn,
+        statusColumn,
+        {
+            id: "cost",
+            header: "Costo",
+            cell: ({row}) => money.format(Number(row.original.unit_cost)),
+        },
+    ];
+    if (isAdmin) columns.push(actionColumn);
 
     return <DataTable data={items} columns={columns}
         className={`catalog-items-data-table ${grouped ? "grouped-table" : ""}`}/>;

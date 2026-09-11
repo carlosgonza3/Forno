@@ -4,10 +4,15 @@ import DashboardPage from "./DashboardPage";
 
 const loadCatalog = vi.fn();
 const loadInventoryAdditionTransactions = vi.fn();
+const loadPurchaseDashboardSummary = vi.fn();
 
 vi.mock("../../inventory/api/catalogRepository", () => ({
   loadCatalog: (...args) => loadCatalog(...args),
   loadInventoryAdditionTransactions: (...args) => loadInventoryAdditionTransactions(...args),
+}));
+
+vi.mock("../../purchasing/api/shoppingRepository", () => ({
+  loadPurchaseDashboardSummary: (...args) => loadPurchaseDashboardSummary(...args),
 }));
 
 function transaction(id, date, actor) {
@@ -29,6 +34,39 @@ describe("Dashboard inventory activity views", () => {
     loadCatalog.mockResolvedValue({items: [], suppliers: [], processedItems: []});
     loadInventoryAdditionTransactions.mockReset();
     loadInventoryAdditionTransactions.mockResolvedValue({transactions: [], total: 0, page: 0, pageSize: 5});
+    loadPurchaseDashboardSummary.mockReset();
+    loadPurchaseDashboardSummary.mockResolvedValue({
+      pendingOrders: 0,
+      pendingItems: 0,
+      monthlyOrders: 0,
+      monthlyPending: 0,
+      monthlyCompleted: 0,
+      monthlyCancelled: 0,
+    });
+  });
+
+  it("shows pending and monthly order insights", async () => {
+    const onNavigate = vi.fn();
+    loadPurchaseDashboardSummary.mockResolvedValue({
+      pendingOrders: 3,
+      pendingItems: 8,
+      monthlyOrders: 12,
+      monthlyPending: 3,
+      monthlyCompleted: 7,
+      monthlyCancelled: 2,
+    });
+
+    render(<DashboardPage onNavigate={onNavigate}/>);
+
+    const pendingDetail = await screen.findByText("8 ingredientes por recibir");
+    const pendingCard = pendingDetail.closest("button");
+    expect(pendingCard).toHaveTextContent("Órdenes pendientes");
+    expect(pendingCard).toHaveTextContent("3");
+    const monthlyDetail = screen.getByText("7 completadas · 3 pendientes · 2 canceladas");
+    expect(monthlyDetail.closest("button")).toHaveTextContent("Órdenes creadas este mes");
+    expect(monthlyDetail.closest("button")).toHaveTextContent("12");
+    fireEvent.click(pendingCard);
+    expect(onNavigate).toHaveBeenCalledWith("shopping");
   });
 
   it("opens inventory with the critical stock filter from the critical metric", async () => {
@@ -131,7 +169,7 @@ describe("Dashboard inventory activity views", () => {
     expect(screen.queryByRole("button", {name: "Expandir"})).not.toBeInTheDocument();
     expect(screen.getByRole("separator", {name: "Redimensionar paneles del dashboard"}))
       .toBeInTheDocument();
-    expect(document.querySelectorAll(".inventory-metric")).toHaveLength(4);
+    expect(document.querySelectorAll(".inventory-metric")).toHaveLength(6);
     expect(document.querySelector(".stat-card")).not.toBeInTheDocument();
   });
 });
