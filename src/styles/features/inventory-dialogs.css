@@ -263,6 +263,71 @@ html[data-theme="dark"] .modal.existence-dialog .increment-prefix:hover {
     box-shadow: 0 0 0 3px rgba(85, 123, 131, .16)
 }
 
+.modal.existence-dialog .existence-review tr.error-row td {
+    background: #fff0ed
+}
+
+.modal.existence-dialog .existence-review tr.error-row td:first-child {
+    box-shadow: inset 4px 0 #b43b30
+}
+
+.modal.existence-dialog .existence-diagnostic {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    margin: 12px 17px 0;
+    padding: 12px 14px;
+    border: 1px solid #e5aaa2;
+    border-radius: 9px;
+    background: #fff0ed;
+    color: #842820
+}
+
+.modal.existence-dialog .existence-diagnostic strong,
+.modal.existence-dialog .existence-diagnostic p,
+.modal.existence-dialog .existence-diagnostic small,
+.modal.existence-dialog .existence-diagnostic code {
+    display: block
+}
+
+.modal.existence-dialog .existence-diagnostic p {
+    margin: 3px 0;
+    font-size: 11px;
+    line-height: 1.45
+}
+
+.modal.existence-dialog .existence-diagnostic small {
+    margin-bottom: 7px;
+    color: #9b4b44
+}
+
+.modal.existence-dialog .existence-diagnostic code {
+    padding: 7px 9px;
+    overflow-wrap: anywhere;
+    border-radius: 6px;
+    background: rgba(132, 40, 32, .07);
+    color: #71302a;
+    font-size: 10px;
+    white-space: normal
+}
+
+.modal.existence-dialog .existence-diagnostic button {
+    width: fit-content;
+    margin-top: 8px;
+    padding: 6px 9px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font-size: 10px;
+    font-weight: 800
+}
+
+.modal.existence-dialog .existence-diagnostic button:disabled {
+    display: none
+}
+
 html[data-theme="dark"] .modal.existence-dialog .existence-tools {
     border-color: var(--line);
     background: #211b18
@@ -318,6 +383,30 @@ html[data-theme="dark"] .modal.existence-dialog .existence-review-summary {
     border-color: #3f6148;
     background: #22352a;
     color: #9dc5a6
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-review tr.error-row td {
+    border-color: #603d39;
+    background: #3b2422
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-review tr.error-row td:first-child {
+    box-shadow: inset 4px 0 #dc766a
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-diagnostic {
+    border-color: #68423d;
+    background: #352321;
+    color: #f0aaa1
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-diagnostic small {
+    color: #cf8f87
+}
+
+html[data-theme="dark"] .modal.existence-dialog .existence-diagnostic code {
+    background: rgba(0, 0, 0, .16);
+    color: #e7b5ae
 }
 
 html[data-theme="dark"] .modal.existence-dialog .addition-pill {
@@ -454,4 +543,3 @@ html[data-theme="dark"] .danger-btn:hover {
         min-width: 720px
     }
 }
-

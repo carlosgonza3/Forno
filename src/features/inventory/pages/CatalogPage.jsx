@@ -90,6 +90,11 @@ import {
     ingredientIconOption,
     searchIngredientIcons,
 } from "../ingredientIcons";
+import {
+    beverageExistenceError,
+    beveragePreflightError,
+    rememberBeverageDiagnostic,
+} from "../beverageInventoryDiagnostics";
 
 const money = new Intl.NumberFormat("es-SV", {style: "currency", currency: "USD"});
 const EmojiPicker = lazy(() => import("emoji-picker-react"));
@@ -567,6 +572,7 @@ export default function CatalogPage({initialStockFilter = "all"}) {
                                       ? [{value: "none", label: "Sin agrupar"}] : undefined}
                                   showDepartmentFilter={tab !== "beverages"}
                                   showGrouping={tab !== "beverages"}
+                                  userRole={role}
                                   onClose={() => setExistenceOpen(false)}
                                   onSaved={async () => {
                                       setExistenceOpen(false);
@@ -577,6 +583,7 @@ export default function CatalogPage({initialStockFilter = "all"}) {
             <ExistenceEntryDialog catalog={{...catalog, items: catalog.processedItems ?? [], departments: []}}
                 itemLabel="ingrediente procesado" groupOptions={[{value: "none", label: "Sin agrupar"}]}
                 showDepartmentFilter={false} showGrouping={false}
+                userRole={role}
                 saveExistences={setProcessedInventoryExistences}
                 onClose={() => setProcessedExistenceOpen(false)} onSaved={async () => {
                     setProcessedExistenceOpen(false);
@@ -596,6 +603,7 @@ function ExistenceEntryDialog({
         {value: "supplier", label: "Por proveedor"}, {value: "none", label: "Sin agrupar"}],
     showDepartmentFilter = true,
     showGrouping = true,
+    userRole = "unknown",
 }) {
     const [stage, setStage] = useState("entry");
     const [query, setQuery] = useState("");
@@ -606,6 +614,7 @@ function ExistenceEntryDialog({
     const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [diagnosticCopied, setDiagnosticCopied] = useState(false);
     const [discardOpen, setDiscardOpen] = useState(false);
 
     const visibleItems = useMemo(() => catalog.items
@@ -648,14 +657,39 @@ function ExistenceEntryDialog({
     }
 
     async function confirm() {
-        setSaving(true);
         setError("");
+        setDiagnosticCopied(false);
+        if (itemLabel === "bebida") {
+            const preflightError = beveragePreflightError(editedItems, userRole);
+            if (preflightError) {
+                rememberBeverageDiagnostic(preflightError.reportText);
+                setError(preflightError);
+                return;
+            }
+        }
+        setSaving(true);
         try {
             await saveExistences(editedItems);
             await onSaved();
         } catch (nextError) {
-            setError(errorMessage(nextError));
+            if (itemLabel === "bebida") {
+                const diagnostic = beverageExistenceError(nextError, editedItems, userRole);
+                rememberBeverageDiagnostic(diagnostic.reportText);
+                setError(diagnostic);
+            } else {
+                setError(errorMessage(nextError));
+            }
             setSaving(false);
+        }
+    }
+
+    async function copyDiagnostic() {
+        if (typeof error !== "object" || !navigator.clipboard) return;
+        try {
+            await navigator.clipboard.writeText(error.reportText);
+            setDiagnosticCopied(true);
+        } catch {
+            setDiagnosticCopied(false);
         }
     }
 
@@ -717,7 +751,9 @@ function ExistenceEntryDialog({
                 <div className="table-wrap">
                     <table><thead><tr><th>Ingrediente</th><th>Existencia anterior</th>
                     <th>Nueva existencia</th><th>Cambio</th><th>Nota</th></tr></thead>
-                    <tbody>{editedItems.map((item) => <tr key={item.id}><td><strong>{item.name}</strong>
+                    <tbody>{editedItems.map((item) => <tr key={item.id}
+                        className={typeof error === "object" && error.affectedItemIds.has(item.id) ? "error-row" : ""}>
+                        <td><strong>{item.name}</strong>
                         <small className="review-sku">{item.sku || "Sin SKU"}</small></td>
                         <td>{Number(item.quantity).toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.quantity)}</td>
                         <td><strong>{item.newQuantity.toLocaleString("es-SV")} {quantityUnitLabel(item.base_unit, item.newQuantity)}</strong></td>
@@ -729,7 +765,13 @@ function ExistenceEntryDialog({
                     </tr>)}</tbody></table></div>
             </div>}
 
-            {error && <div className="catalog-message error">{error}</div>}
+            {error && (typeof error === "object" ? <div className="existence-diagnostic" role="alert">
+                <AlertTriangle size={20}/><div><strong>{error.summary}</strong><p>{error.cause}</p>
+                    <small>{error.rowExplanation}</small>
+                    <code>{error.technical}</code>
+                    <button type="button" onClick={copyDiagnostic} disabled={!navigator.clipboard}>
+                        {diagnosticCopied ? "Diagnóstico copiado" : "Copiar diagnóstico"}</button></div>
+            </div> : <div className="catalog-message error">{error}</div>)}
             <footer className="existence-dialog-footer">
                 <span>{editedItems.length ? <><strong>{editedItems.length}</strong> editados</> : "Aún no hay cambios"}</span>
                 <div>

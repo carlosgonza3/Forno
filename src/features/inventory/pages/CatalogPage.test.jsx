@@ -224,6 +224,53 @@ describe("CatalogPage inventory explorer", () => {
     ]));
   });
 
+  it("shows the database cause and highlights submitted beverages when an existence update fails", async () => {
+    setInventoryExistences.mockRejectedValueOnce({
+      code: "22023",
+      message: "Inventory updates must change the current quantity",
+      details: "The stored quantity changed before this request was processed",
+    });
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+    fireEvent.click(screen.getByRole("tab", {name: "Bebidas"}));
+    fireEvent.click(screen.getByRole("button", {name: "Actualizar existencias"}));
+    fireEvent.change(screen.getByLabelText("Nueva existencia de Vino tinto"), {target: {value: "5"}});
+    fireEvent.click(screen.getByRole("button", {name: /Continuar/}));
+    fireEvent.click(screen.getByRole("button", {name: /Confirmar y guardar/}));
+
+    const diagnostic = await screen.findByRole("alert");
+    expect(diagnostic).toHaveTextContent("No se pudo actualizar la bebida");
+    expect(diagnostic).toHaveTextContent("ya tiene en la base de datos la misma existencia");
+    expect(diagnostic).toHaveTextContent("Código: 22023");
+    expect(diagnostic).toHaveTextContent("Inventory updates must change the current quantity");
+    expect(screen.getAllByText("Vino tinto").map((name) => name.closest("tr"))
+      .find((row) => row?.classList.contains("error-row"))).toBeTruthy();
+    const savedDiagnostic = JSON.parse(sessionStorage.getItem("forno:last-beverage-inventory-error"));
+    expect(savedDiagnostic).toMatchObject({
+      source: "database",
+      classification: "STALE_OR_ALREADY_CURRENT_QUANTITY",
+      accountRole: "local",
+      items: [expect.objectContaining({id: "wine", submittedQuantity: 5, noteLength: 0})],
+    });
+  });
+
+  it("blocks a bebida quantity outside the database range before calling the repository", async () => {
+    render(<CatalogPage />);
+    await screen.findByText("Tomate");
+    fireEvent.click(screen.getByRole("tab", {name: "Bebidas"}));
+    fireEvent.click(screen.getByRole("button", {name: "Actualizar existencias"}));
+    fireEvent.change(screen.getByLabelText("Nueva existencia de Vino tinto"),
+      {target: {value: "100000000000"}});
+    fireEvent.click(screen.getByRole("button", {name: /Continuar/}));
+    fireEvent.click(screen.getByRole("button", {name: /Confirmar y guardar/}));
+
+    const diagnostic = await screen.findByRole("alert");
+    expect(diagnostic).toHaveTextContent("La solicitud no se envió");
+    expect(diagnostic).toHaveTextContent("excede el máximo permitido");
+    expect(diagnostic).toHaveTextContent("no se realizó ninguna operación en la base de datos");
+    expect(setInventoryExistences).not.toHaveBeenCalled();
+  });
+
   it("updates processed-item existences through the separate processed inventory workflow", async () => {
     render(<CatalogPage />);
     await screen.findByText("Tomate");
