@@ -13,6 +13,7 @@ const ITEM_SELECT = `
   icon_key,
   icon_emoji,
   active,
+  updated_at,
   department:departments(id, name),
   supplier:suppliers(id, name)
 `;
@@ -27,7 +28,8 @@ const PROCESSED_ITEM_SELECT = `
   par_level,
   reorder_point,
   unit_cost,
-  active
+  active,
+  updated_at
 `;
 let iconFieldAvailable = true;
 let emojiFieldAvailable = true;

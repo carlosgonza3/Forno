@@ -52,8 +52,14 @@ describe("catalog icon updates", () => {
     const catalog = await loadCatalog();
 
     expect(database.rpc).toHaveBeenCalledWith("get_latest_inventory_notes");
-    expect(catalog.items[0]).toMatchObject({last_note: "Conteo de apertura"});
-    expect(catalog.processedItems[0]).toMatchObject({last_note: "Producción diaria"});
+    expect(catalog.items[0]).toMatchObject({
+      last_note: "Conteo de apertura",
+      last_note_at: "2026-09-11",
+    });
+    expect(catalog.processedItems[0]).toMatchObject({
+      last_note: "Producción diaria",
+      last_note_at: "2026-09-11",
+    });
   });
 
   it("updates only the selected icon fields and timestamp", async () => {

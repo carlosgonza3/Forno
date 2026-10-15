@@ -46,6 +46,27 @@ describe("SettingsPage profile name", () => {
     expect(await screen.findByText("Nombre actualizado")).toBeInTheDocument();
   });
 
+  it("changes visible columns independently for each inventory section", () => {
+    const onInventoryTablePreferencesChange = vi.fn();
+    render(<SettingsPage theme="light" onThemeChange={vi.fn()}
+      inventoryTablePreferences={{
+        ingredients: ["stock", "status"],
+        processed: ["stock", "last-note"],
+        beverages: ["stock", "updated-at"],
+      }}
+      onInventoryTablePreferencesChange={onInventoryTablePreferencesChange}/>);
+
+    expect(screen.getByRole("heading", {name: "Columnas visibles"})).toBeInTheDocument();
+    expect(screen.getByLabelText("Mostrar Estado en Ingredientes")).toBeChecked();
+    expect(screen.getByLabelText("Mostrar Estado en Preparados")).not.toBeChecked();
+
+    fireEvent.click(screen.getByLabelText("Mostrar Última nota en Bebidas"));
+    expect(onInventoryTablePreferencesChange).toHaveBeenCalledWith(
+      "beverages",
+      ["stock", "last-note", "updated-at"],
+    );
+  });
+
   it("lets administrators add a normalized department", async () => {
     authRole = "admin";
     render(<SettingsPage theme="light" onThemeChange={vi.fn()}/>);

@@ -252,6 +252,10 @@
     height: 100%
 }
 
+.catalog-panel.is-table-expanded .inventory-groups .catalog-items-data-table {
+    height: auto
+}
+
 .catalog-create-button {
     flex: 0 0 auto
 }
@@ -366,18 +370,28 @@
     overflow: auto
 }
 
+.catalog-items-data-table > .ui-table-container {
+    overflow: visible
+}
+
 .catalog-items-data-table .ui-table {
+    min-width: 980px
+}
+
+.catalog-items-data-table:is(.catalog-columns-1, .catalog-columns-2, .catalog-columns-3, .catalog-columns-4) .ui-table {
     min-width: 650px
 }
 
 .catalog-items-data-table .ui-table-head {
     position: sticky;
     top: 0;
-    z-index: 2
+    z-index: 3;
+    background: color-mix(in srgb, var(--paper) 72%, var(--line) 28%);
+    box-shadow: 0 1px 0 var(--line)
 }
 
 .catalog-items-data-table .ui-table-head:first-child {
-    width: 48%
+    width: 30%
 }
 
 .catalog-items-data-table .ui-table-head:last-child,
@@ -457,8 +471,17 @@
     white-space: normal
 }
 
+.catalog-timestamp {
+    display: block;
+    min-width: 104px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.4;
+    white-space: normal
+}
+
 .catalog-beverages-data-table .ui-table {
-    min-width: 700px
+    min-width: 980px
 }
 
 .catalog-beverages-data-table .ui-table-head:first-child {
@@ -1582,7 +1605,7 @@ html[data-theme="dark"] .sheet-overlay {
 
 .inventory-subgroup-content {
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid #e2d9d0;
     border-radius: 9px;
     background: var(--paper);
@@ -1590,6 +1613,12 @@ html[data-theme="dark"] .sheet-overlay {
 }
 
 .inventory-groups .table-wrap {
+    max-height: none;
+    min-height: 0;
+    overflow: visible
+}
+
+.inventory-groups .catalog-items-data-table {
     max-height: none;
     min-height: 0;
     overflow: visible

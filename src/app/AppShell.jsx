@@ -13,6 +13,10 @@ import {
   markActivityNotificationsViewed,
 } from "../features/inventory/api/catalogRepository";
 import {ACTIVITY_NOTIFICATION_EVENT} from "../features/inventory/inventoryEvents";
+import {
+  readInventoryTablePreferences,
+  saveInventoryTablePreferences,
+} from "../features/inventory/inventoryTablePreferences";
 import AppHeader from "../shared/layout/AppHeader";
 import AppSidebar from "../shared/layout/AppSidebar";
 import {releaseScope, RELEASE_SCOPES} from "../config/release";
@@ -34,13 +38,15 @@ function userIdentity(profile, user) {
 
 function PageContent({
   page, pageState, onNavigate, theme, onThemeChange, onUpload, lastInventoryUpdate,
+  inventoryTablePreferences, onInventoryTablePreferencesChange,
 }) {
   switch (page) {
     case "dashboard":
       return <DashboardPage onNavigate={onNavigate}
         lastInventoryMovement={lastInventoryUpdate}/>;
     case "inventory":
-      return <CatalogPage initialStockFilter={pageState.stockFilter}/>;
+      return <CatalogPage initialStockFilter={pageState.stockFilter}
+        columnPreferences={inventoryTablePreferences}/>;
     case "shopping":
       return <ShoppingPage/>;
     case "prep":
@@ -50,7 +56,9 @@ function PageContent({
     case "receipts":
       return <ReceiptsPage onUpload={onUpload}/>;
     case "settings":
-      return <SettingsPage theme={theme} onThemeChange={onThemeChange}/>;
+      return <SettingsPage theme={theme} onThemeChange={onThemeChange}
+        inventoryTablePreferences={inventoryTablePreferences}
+        onInventoryTablePreferencesChange={onInventoryTablePreferencesChange}/>;
     default:
       return <DashboardPage onNavigate={onNavigate}/>;
   }
@@ -66,6 +74,7 @@ export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(readTheme);
+  const [inventoryTablePreferences, setInventoryTablePreferences] = useState(readInventoryTablePreferences);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [activityNotifications, setActivityNotifications] = useState([]);
@@ -124,6 +133,13 @@ export default function AppShell() {
     setMobileOpen(false);
   }
 
+  function updateInventoryTablePreferences(sectionId, columns) {
+    setInventoryTablePreferences((current) => saveInventoryTablePreferences({
+      ...current,
+      [sectionId]: columns,
+    }));
+  }
+
   async function handleSignOut() {
     setSigningOut(true);
     try {
@@ -148,7 +164,9 @@ export default function AppShell() {
       <div className="content">
         <PageContent page={page} pageState={pageState} onNavigate={navigate} theme={theme}
           onThemeChange={setTheme} onUpload={() => setUploadOpen(true)}
-          lastInventoryUpdate={lastInventoryUpdate}/>
+          lastInventoryUpdate={lastInventoryUpdate}
+          inventoryTablePreferences={inventoryTablePreferences}
+          onInventoryTablePreferencesChange={updateInventoryTablePreferences}/>
       </div>
     </main>
     {isFullRelease && uploadOpen

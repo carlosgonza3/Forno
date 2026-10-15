@@ -44,6 +44,20 @@ const pendingList = {
     }],
 };
 
+const tomatoCatalogItem = {
+    id: "tomato",
+    name: "Tomate",
+    sku: "FOR-001",
+    base_unit: "lb",
+    quantity: 1,
+    par_level: 10,
+    reorder_point: 2,
+    unit_cost: 1,
+    active: true,
+    department: {id: "produce", name: "Frutas"},
+    supplier: {id: "market", name: "Mercado"},
+};
+
 describe("ShoppingPage purchase receipt review", () => {
     afterEach(cleanup);
 
@@ -63,6 +77,24 @@ describe("ShoppingPage purchase receipt review", () => {
     });
 
     it("reviews ordered and received quantities before adding inventory", async () => {
+        loadShoppingWorkspace
+            .mockResolvedValueOnce({
+                catalog: {items: [], departments: [], suppliers: []},
+                decisions: [],
+                pendingItemIds: [],
+                lists: [pendingList],
+            })
+            .mockResolvedValueOnce({
+                catalog: {items: [tomatoCatalogItem], departments: [], suppliers: []},
+                decisions: [{
+                    item_id: "tomato",
+                    quantity_override: null,
+                    quantity_manually_overridden: false,
+                    included: false,
+                }],
+                pendingItemIds: [],
+                lists: [{...pendingList, status: "received", received_at: "2026-10-14T12:00:00Z"}],
+            });
         render(<ShoppingPage/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /Lista #11111111/i}));
@@ -84,6 +116,9 @@ describe("ShoppingPage purchase receipt review", () => {
             itemId: "flour",
             quantityReceived: 3,
         }]));
+
+        expect(await screen.findByText("0 seleccionados")).toBeInTheDocument();
+        expect(await screen.findByRole("button", {name: "Incluir Tomate"})).toBeInTheDocument();
     });
 
     it("confirms cancellation of a pending order without receiving inventory", async () => {

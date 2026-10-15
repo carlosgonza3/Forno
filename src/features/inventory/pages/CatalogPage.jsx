@@ -95,9 +95,23 @@ import {
     beveragePreflightError,
     rememberBeverageDiagnostic,
 } from "../beverageInventoryDiagnostics";
+import {DEFAULT_INVENTORY_TABLE_PREFERENCES} from "../inventoryTablePreferences";
 
 const money = new Intl.NumberFormat("es-SV", {style: "currency", currency: "USD"});
 const EmojiPicker = lazy(() => import("emoji-picker-react"));
+
+function inventoryDateTime(value) {
+    if (!value) return "Sin registro";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Sin registro";
+    return date.toLocaleString("es-SV", {dateStyle: "medium", timeStyle: "short"});
+}
+
+function InventoryTimestamp({value}) {
+    const label = inventoryDateTime(value);
+    return <time className="catalog-timestamp" dateTime={value || undefined} title={label}>{label}</time>;
+}
+
 const emptyItem = {
     id: null,
     name: "",
@@ -165,7 +179,10 @@ function errorMessage(error) {
     return "No pudimos completar la operación. Intenta nuevamente.";
 }
 
-export default function CatalogPage({initialStockFilter = "all"}) {
+export default function CatalogPage({
+    initialStockFilter = "all",
+    columnPreferences = DEFAULT_INVENTORY_TABLE_PREFERENCES,
+}) {
     const {role} = useAuth();
     const isAdmin = role === "admin";
     const [catalog, setCatalog] = useState({
@@ -526,6 +543,7 @@ export default function CatalogPage({initialStockFilter = "all"}) {
                     iconFieldAvailable={tab !== "processed" && catalog.iconFieldAvailable}
                     emojiFieldAvailable={catalog.emojiFieldAvailable}
                     savingIconIds={savingIconIds} onIconChange={updateItemIcon}
+                    visibleColumnKeys={columnPreferences[tab === "items" ? "ingredients" : tab]}
                     tableVariant={tab === "beverages" ? "beverages" : "default"}/></div>
             ) : (
                 <SuppliersTable suppliers={suppliers} isAdmin={isAdmin} onEdit={(supplier) => setSupplierDraft({
@@ -1005,6 +1023,7 @@ function ItemsExplorer({
     emojiFieldAvailable,
     savingIconIds,
     onIconChange,
+    visibleColumnKeys,
     tableVariant = "default",
 }) {
     const itemCount = groups.reduce((total, group) => total + group.items.length, 0);
@@ -1013,13 +1032,15 @@ function ItemsExplorer({
         <p>Ajusta la búsqueda o los filtros.</p></div>;
     if (groupBy === "none") return <ItemsTable items={groups[0].items} isAdmin={isAdmin} onEdit={onEdit}
         onToggle={onToggle} iconFieldAvailable={iconFieldAvailable} emojiFieldAvailable={emojiFieldAvailable}
-        savingIconIds={savingIconIds} onIconChange={onIconChange} tableVariant={tableVariant}/>;
+        savingIconIds={savingIconIds} onIconChange={onIconChange} visibleColumnKeys={visibleColumnKeys}
+        tableVariant={tableVariant}/>;
     return <div className="inventory-groups">{groups.map((group) => (
         <InventoryGroup key={group.key} group={group} collapsed={collapsedGroups.has(group.key)}
                         onToggle={() => onToggleGroup(group.key)} isAdmin={isAdmin} onEdit={onEdit}
                         onItemToggle={onToggle} iconFieldAvailable={iconFieldAvailable}
                         emojiFieldAvailable={emojiFieldAvailable} savingIconIds={savingIconIds}
-                        onIconChange={onIconChange} tableVariant={tableVariant}/>
+                        onIconChange={onIconChange} visibleColumnKeys={visibleColumnKeys}
+                        tableVariant={tableVariant}/>
     ))}</div>;
 }
 
@@ -1034,6 +1055,7 @@ function InventoryGroup({
     emojiFieldAvailable,
     savingIconIds,
     onIconChange,
+    visibleColumnKeys,
     tableVariant,
 }) {
     const criticalCount = group.items.filter((item) => stockStatus(item).key === "critical").length;
@@ -1052,6 +1074,7 @@ function InventoryGroup({
                 <ItemsTable items={group.items} isAdmin={isAdmin} onEdit={onEdit} onToggle={onItemToggle}
                     iconFieldAvailable={iconFieldAvailable} emojiFieldAvailable={emojiFieldAvailable}
                     savingIconIds={savingIconIds} onIconChange={onIconChange} grouped
+                    visibleColumnKeys={visibleColumnKeys}
                     tableVariant={tableVariant}/>
             </div>
         </div>}
@@ -1067,6 +1090,7 @@ function ItemsTable({
     emojiFieldAvailable,
     savingIconIds,
     onIconChange,
+    visibleColumnKeys = DEFAULT_INVENTORY_TABLE_PREFERENCES.ingredients,
     grouped = false,
     tableVariant = "default",
 }) {
@@ -1111,6 +1135,16 @@ function ItemsTable({
         header: "Última nota",
         cell: ({row}) => <span className="catalog-last-note">{row.original.last_note || "Sin nota"}</span>,
     };
+    const lastNoteAtColumn = {
+        id: "last-note-at",
+        header: "Fecha de nota",
+        cell: ({row}) => <InventoryTimestamp value={row.original.last_note_at}/>,
+    };
+    const updatedAtColumn = {
+        id: "updated-at",
+        header: "Último cambio",
+        cell: ({row}) => <InventoryTimestamp value={row.original.updated_at}/>,
+    };
     const statusColumn = {
         id: "status",
         header: "Estado",
@@ -1139,27 +1173,32 @@ function ItemsTable({
         },
     };
     if (isBeverageTable) {
-        const beverageColumns = [nameColumn, stockColumn, lastNoteColumn, statusColumn];
+        const visibleColumns = new Set(visibleColumnKeys);
+        const beverageColumns = [nameColumn, stockColumn, lastNoteColumn, lastNoteAtColumn,
+            updatedAtColumn, statusColumn].filter((column) => column === nameColumn || visibleColumns.has(column.id));
         if (isAdmin) beverageColumns.push(actionColumn);
         return <DataTable data={items} columns={beverageColumns}
-            className={`catalog-items-data-table catalog-beverages-data-table ${isAdmin ? "has-actions" : ""}`}/>;
+            className={`catalog-items-data-table catalog-beverages-data-table catalog-columns-${beverageColumns.length} ${isAdmin ? "has-actions" : ""}`}/>;
     }
 
+    const visibleColumns = new Set(visibleColumnKeys);
     const columns = [
         nameColumn,
         stockColumn,
         lastNoteColumn,
+        lastNoteAtColumn,
+        updatedAtColumn,
         statusColumn,
         {
             id: "cost",
             header: "Costo",
             cell: ({row}) => money.format(Number(row.original.unit_cost)),
         },
-    ];
+    ].filter((column) => column === nameColumn || visibleColumns.has(column.id));
     if (isAdmin) columns.push(actionColumn);
 
     return <DataTable data={items} columns={columns}
-        className={`catalog-items-data-table ${grouped ? "grouped-table" : ""}`}/>;
+        className={`catalog-items-data-table catalog-columns-${columns.length} ${grouped ? "grouped-table" : ""}`}/>;
 }
 
 function SuppliersTable({suppliers, isAdmin, onEdit, onToggle}) {

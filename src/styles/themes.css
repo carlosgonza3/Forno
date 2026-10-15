@@ -104,6 +104,144 @@
     background: #9f3026
 }
 
+.inventory-columns-settings-card .settings-heading {
+    margin-bottom: 20px
+}
+
+.inventory-column-sections {
+    display: grid;
+    gap: 14px
+}
+
+.inventory-column-section {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--paper)
+}
+
+.inventory-column-section legend {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line)
+}
+
+.inventory-column-section-icon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--accent-text);
+    background: var(--accent-soft)
+}
+
+.inventory-column-section legend > span:nth-child(2) {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px
+}
+
+.inventory-column-section legend strong {
+    color: var(--ink);
+    font: 750 13px Manrope
+}
+
+.inventory-column-section legend small {
+    color: var(--muted);
+    font-size: 9px
+}
+
+.inventory-column-section legend b {
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: var(--accent-text);
+    background: var(--accent-soft);
+    font-size: 9px
+}
+
+.inventory-column-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px 14px 14px
+}
+
+.inventory-column-option {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--paper) 94%, var(--line) 6%);
+    cursor: pointer;
+    font-size: 10px
+}
+
+.inventory-column-option:hover,
+.inventory-column-option.selected {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+    color: var(--ink);
+    background: var(--accent-soft)
+}
+
+.inventory-column-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none
+}
+
+.inventory-column-check {
+    width: 18px;
+    height: 18px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: #fff;
+    background: var(--paper)
+}
+
+.inventory-column-option.selected .inventory-column-check {
+    border-color: var(--accent);
+    background: var(--accent)
+}
+
+.inventory-column-option.is-required {
+    cursor: default;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--paper) 88%, var(--line) 12%)
+}
+
+.inventory-column-option.is-required > svg {
+    color: var(--accent-text)
+}
+
+.inventory-column-option.is-required > span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.inventory-column-option.is-required small {
+    color: var(--muted);
+    font-size: 8px
+}
+
 .profile-settings-card {
     display: grid;
     grid-template-columns: minmax(240px, .75fr) minmax(320px, 1.25fr);
@@ -961,6 +1099,10 @@ html[data-theme="dark"] :is(input, select, textarea, button):focus-visible {
         grid-template-columns: 1fr
     }
 
+    .inventory-column-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+    }
+
     .profile-settings-card {
         grid-template-columns: 1fr;
         gap: 24px
@@ -1001,5 +1143,15 @@ html[data-theme="dark"] :is(input, select, textarea, button):focus-visible {
 
     .department-dialog-actions > button {
         width: 100%
+    }
+}
+
+@media (max-width: 430px) {
+    .inventory-column-options {
+        grid-template-columns: 1fr
+    }
+
+    .inventory-column-section legend b {
+        display: none
     }
 }

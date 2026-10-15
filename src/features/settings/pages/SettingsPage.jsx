@@ -1,7 +1,12 @@
 import {useCallback, useEffect, useState} from "react";
-import {Building2, Check, Moon, Plus, Save, Sun, Trash2, UserRound, X} from "lucide-react";
+import {Building2, Check, Columns3, Moon, Plus, Save, Sun, Trash2, UserRound, X} from "lucide-react";
 import {useAuth} from "../../auth/AuthProvider";
 import {createDepartment, deleteDepartment, loadDepartmentSettings} from "../api/departmentRepository";
+import {
+  DEFAULT_INVENTORY_TABLE_PREFERENCES,
+  INVENTORY_TABLE_COLUMN_LABELS,
+  INVENTORY_TABLE_SECTIONS,
+} from "../../inventory/inventoryTablePreferences";
 
 const THEME_CHOICES = [
   {
@@ -18,7 +23,12 @@ const THEME_CHOICES = [
   },
 ];
 
-export default function SettingsPage({theme, onThemeChange}) {
+export default function SettingsPage({
+  theme,
+  onThemeChange,
+  inventoryTablePreferences = DEFAULT_INVENTORY_TABLE_PREFERENCES,
+  onInventoryTablePreferencesChange = () => {},
+}) {
   const {profile, role, updateDisplayName} = useAuth();
   const isAdmin = role === "admin";
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
@@ -134,6 +144,14 @@ export default function SettingsPage({theme, onThemeChange}) {
     }
   }
 
+  function toggleInventoryColumn(section, column) {
+    const selectedColumns = inventoryTablePreferences[section.id] ?? section.columns;
+    const nextColumns = selectedColumns.includes(column)
+      ? selectedColumns.filter((current) => current !== column)
+      : section.columns.filter((current) => current === column || selectedColumns.includes(current));
+    onInventoryTablePreferencesChange(section.id, nextColumns);
+  }
+
   return <div className="settings-layout">
     <section className="panel settings-card profile-settings-card">
       <div className="settings-heading"><span className="eyebrow">PERFIL</span>
@@ -173,6 +191,39 @@ export default function SettingsPage({theme, onThemeChange}) {
             <span><strong>{label}</strong><small>{description}</small></span>
             <i className="theme-check">{theme === id && <Check size={15}/>}</i>
           </button>)}
+      </div>
+    </section>
+    <section className="panel settings-card inventory-columns-settings-card">
+      <div className="settings-heading"><span className="eyebrow">TABLAS DE INVENTARIO</span>
+        <h2>Columnas visibles</h2>
+        <p>Elige qué información mostrar en cada sección. La preferencia se guarda en este dispositivo.</p>
+      </div>
+      <div className="inventory-column-sections">
+        {INVENTORY_TABLE_SECTIONS.map((section) => {
+          const selectedColumns = inventoryTablePreferences[section.id] ?? section.columns;
+          return <fieldset className="inventory-column-section" key={section.id}>
+            <legend><span className="inventory-column-section-icon"><Columns3 size={16}/></span>
+              <span><strong>{section.label}</strong><small>{section.description}</small></span>
+              <b>{selectedColumns.length + 1} visibles</b>
+            </legend>
+            <div className="inventory-column-options">
+              <span className="inventory-column-option is-required"><Check size={14}/>
+                <span><strong>{section.id === "beverages" ? "Nombre" : "Ingrediente"}</strong>
+                  <small>Siempre visible</small></span>
+              </span>
+              {section.columns.map((column) => {
+                const selected = selectedColumns.includes(column);
+                return <label className={`inventory-column-option ${selected ? "selected" : ""}`} key={column}>
+                  <input type="checkbox" checked={selected}
+                    aria-label={`Mostrar ${INVENTORY_TABLE_COLUMN_LABELS[column]} en ${section.label}`}
+                    onChange={() => toggleInventoryColumn(section, column)}/>
+                  <span className="inventory-column-check">{selected && <Check size={13}/>}</span>
+                  <strong>{INVENTORY_TABLE_COLUMN_LABELS[column]}</strong>
+                </label>;
+              })}
+            </div>
+          </fieldset>;
+        })}
       </div>
     </section>
     {isAdmin && <section className="panel settings-card department-settings-card">
