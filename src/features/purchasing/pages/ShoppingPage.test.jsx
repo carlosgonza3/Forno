@@ -58,6 +58,11 @@ const tomatoCatalogItem = {
     supplier: {id: "market", name: "Mercado"},
 };
 
+const shoppingItem = (overrides) => ({
+    ...tomatoCatalogItem,
+    ...overrides,
+});
+
 describe("ShoppingPage purchase receipt review", () => {
     afterEach(cleanup);
 
@@ -122,6 +127,66 @@ describe("ShoppingPage purchase receipt review", () => {
     });
 
     it("confirms cancellation of a pending order without receiving inventory", async () => {
+        const mascarpone = shoppingItem({
+            id: "mascarpone",
+            name: "Queso Mascarpone",
+            sku: "FOR-090",
+            quantity: 10,
+            par_level: 10,
+            reorder_point: 2,
+            department: {id: "dairy", name: "Lácteos"},
+        });
+        const basil = shoppingItem({
+            id: "basil",
+            name: "Albahaca",
+            sku: "FOR-091",
+            quantity: 1,
+            par_level: 3,
+            reorder_point: 1,
+        });
+        const arugula = shoppingItem({
+            id: "arugula",
+            name: "Arúgula",
+            sku: "FOR-092",
+            quantity: 1,
+            par_level: 4,
+            reorder_point: 1,
+        });
+        const mascarponeList = {
+            ...pendingList,
+            item_count: 1,
+            items: [{
+                item_id: "mascarpone",
+                item_name: "Queso Mascarpone",
+                supplier_name: "Proveedor",
+                base_unit: "lb",
+                quantity_ordered: 3,
+                quantity_received: null,
+            }],
+        };
+        loadShoppingWorkspace
+            .mockResolvedValueOnce({
+                catalog: {items: [mascarpone, basil, arugula], departments: [], suppliers: []},
+                decisions: [{
+                    item_id: "mascarpone",
+                    quantity_override: 3,
+                    quantity_manually_overridden: true,
+                    included: true,
+                }],
+                pendingItemIds: ["mascarpone"],
+                lists: [mascarponeList],
+            })
+            .mockResolvedValueOnce({
+                catalog: {items: [mascarpone, basil, arugula], departments: [], suppliers: []},
+                decisions: [{
+                    item_id: "mascarpone",
+                    quantity_override: null,
+                    quantity_manually_overridden: false,
+                    included: false,
+                }],
+                pendingItemIds: [],
+                lists: [{...mascarponeList, status: "cancelled", cancelled_at: "2026-10-15T18:00:00Z"}],
+            });
         render(<ShoppingPage/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /Lista #11111111/i}));
@@ -132,10 +197,17 @@ describe("ShoppingPage purchase receipt review", () => {
         expect(cancelPurchaseList).not.toHaveBeenCalled();
         fireEvent.click(screen.getByRole("button", {name: "Confirmar cancelación"}));
 
-        await waitFor(() => expect(cancelPurchaseList).toHaveBeenCalledWith(pendingList.id));
+        await waitFor(() => expect(cancelPurchaseList).toHaveBeenCalledWith(mascarponeList.id));
         expect(receivePurchaseList).not.toHaveBeenCalled();
         expect(await screen.findByText("La orden pendiente fue cancelada. No se modificó el inventario."))
             .toBeInTheDocument();
+        expect(screen.getByText("2 seleccionados")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", {name: /Revisar y guardar/i}));
+        const review = screen.getByRole("dialog", {name: "Lista para comprar"});
+        expect(review).toHaveTextContent("Albahaca");
+        expect(review).toHaveTextContent("Arúgula");
+        expect(review).not.toHaveTextContent("Queso Mascarpone");
     });
 
     it("uses singular cancellation copy for an order with one ingredient", async () => {
