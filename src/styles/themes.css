@@ -104,6 +104,73 @@
     background: #9f3026
 }
 
+.release-settings-card {
+    display: grid;
+    grid-template-columns: minmax(240px, .75fr) minmax(320px, 1.25fr);
+    align-items: center;
+    gap: 38px
+}
+
+.release-settings-card .settings-heading {
+    margin-bottom: 0
+}
+
+.release-build-details {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--paper)
+}
+
+.release-build-item {
+    min-width: 0;
+    padding: 15px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 1px solid var(--line)
+}
+
+.release-build-item:first-child {
+    border-left: 0
+}
+
+.release-build-item > span {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--accent-text);
+    background: var(--accent-soft)
+}
+
+.release-build-item > div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px
+}
+
+.release-build-item small {
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase
+}
+
+.release-build-item strong {
+    overflow: hidden;
+    color: var(--ink);
+    font: 750 12px Manrope;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
 .inventory-columns-settings-card .settings-heading {
     margin-bottom: 20px
 }
@@ -1106,6 +1173,24 @@ html[data-theme="dark"] :is(input, select, textarea, button):focus-visible {
     .profile-settings-card {
         grid-template-columns: 1fr;
         gap: 24px
+    }
+
+    .release-settings-card {
+        grid-template-columns: 1fr;
+        gap: 20px
+    }
+
+    .release-build-details {
+        grid-template-columns: 1fr
+    }
+
+    .release-build-item {
+        border-top: 1px solid var(--line);
+        border-left: 0
+    }
+
+    .release-build-item:first-child {
+        border-top: 0
     }
 
     .department-settings-card {

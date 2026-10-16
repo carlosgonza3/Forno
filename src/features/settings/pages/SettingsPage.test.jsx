@@ -67,6 +67,18 @@ describe("SettingsPage profile name", () => {
     );
   });
 
+  it("shows the exact deployed version and commit in settings", () => {
+    render(<SettingsPage theme="light" onThemeChange={vi.fn()}
+      build={{environment: "Producción", version: "0.5.1", commit: "abcdef123456",
+        shortCommit: "abcdef1"}}/>);
+
+    const release = screen.getByLabelText("Información de la versión desplegada");
+    expect(release).toHaveTextContent("Producción");
+    expect(release).toHaveTextContent("v0.5.1");
+    expect(release).toHaveTextContent("abcdef1");
+    expect(screen.getByText("abcdef1")).toHaveAttribute("title", "abcdef123456");
+  });
+
   it("lets administrators add a normalized department", async () => {
     authRole = "admin";
     render(<SettingsPage theme="light" onThemeChange={vi.fn()}/>);

@@ -1,6 +1,10 @@
 import {useCallback, useEffect, useState} from "react";
-import {Building2, Check, Columns3, Moon, Plus, Save, Sun, Trash2, UserRound, X} from "lucide-react";
+import {
+  Building2, Check, Cloud, Columns3, GitCommitHorizontal, Moon, PackageCheck, Plus, Save, Sun,
+  Trash2, UserRound, X,
+} from "lucide-react";
 import {useAuth} from "../../auth/AuthProvider";
+import {applicationBuild} from "../../../config/build";
 import {createDepartment, deleteDepartment, loadDepartmentSettings} from "../api/departmentRepository";
 import {
   DEFAULT_INVENTORY_TABLE_PREFERENCES,
@@ -28,6 +32,7 @@ export default function SettingsPage({
   onThemeChange,
   inventoryTablePreferences = DEFAULT_INVENTORY_TABLE_PREFERENCES,
   onInventoryTablePreferencesChange = () => {},
+  build = applicationBuild,
 }) {
   const {profile, role, updateDisplayName} = useAuth();
   const isAdmin = role === "admin";
@@ -191,6 +196,23 @@ export default function SettingsPage({
             <span><strong>{label}</strong><small>{description}</small></span>
             <i className="theme-check">{theme === id && <Check size={15}/>}</i>
           </button>)}
+      </div>
+    </section>
+    <section className="panel settings-card release-settings-card">
+      <div className="settings-heading"><span className="eyebrow">SISTEMA</span>
+        <h2>Versión desplegada</h2>
+        <p>Usa estos datos para confirmar exactamente qué versión de Forno está activa.</p>
+      </div>
+      <div className="release-build-details" aria-label="Información de la versión desplegada">
+        <div className="release-build-item"><span><Cloud size={18}/></span>
+          <div><small>Entorno</small><strong>{build.environment}</strong></div>
+        </div>
+        <div className="release-build-item"><span><PackageCheck size={18}/></span>
+          <div><small>Versión</small><strong>v{build.version}</strong></div>
+        </div>
+        <div className="release-build-item"><span><GitCommitHorizontal size={18}/></span>
+          <div><small>Commit</small><strong title={build.commit}>{build.shortCommit}</strong></div>
+        </div>
       </div>
     </section>
     <section className="panel settings-card inventory-columns-settings-card">
